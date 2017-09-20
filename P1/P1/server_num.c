@@ -59,6 +59,26 @@ void add(struct node *head, int socket, struct sockaddr_in addr) {
     head->next = new_node;
 }
 
+void setMessage(char * buffer, short message_size) {
+    struct timeval time;
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
+    double time_in_mill1 =
+    (time.tv_sec) * 1000 + (time.tv_usec) / 1000.0 ;
+    
+    printf("sec: %ld. usec: %d. message_size: %hi\n", time.tv_sec, time.tv_usec, message_size);
+    printf("htonl(sec): %ld. htonl(usec): %d. htons(message_size): %hi.\n", (long)htonl(time.tv_sec), (int)htonl(time.tv_usec), (short)htons(message_size));
+    printf("ntonl(htonl(sec)): %ld. ntonl(htonl(usec)): %d. ntons(htons(message_size)): %hi.\n", (long)ntohl(htonl(time.tv_sec)), (int)ntohl(htonl(time.tv_usec)), (short)ntohl(htons(message_size)));
+    
+    *(long *) (buffer+2) = (long) htonl(time.tv_sec);
+    *(int *) (buffer+6) = (int) htonl(time.tv_usec);
+    *(short *) buffer = (short) htons(message_size);
+    *(char *) (buffer+10) = 'z';
+    
+    printf("Set message as  %hi, %ld, %d, %c\n", *(short *)buffer, *(long *)(buffer+2), *(int *)(buffer+6), *(char *)(buffer+10));
+}
+
 
 /*****************************************/
 /* main program                          */
@@ -71,7 +91,7 @@ int main(int argc, char **argv) {
     int sock, new_sock, max;
     int optval = 1;
     
-/* server socket address variables */
+    /* server socket address variables */
     struct sockaddr_in sin, addr;
     unsigned short server_port = atoi(argv[1]);
     
@@ -288,8 +308,9 @@ int main(int argc, char **argv) {
                          receive the rest later when more data is available
                          to be read */
                         /* in this case, we expect a message where the first byte
-                         stores the number of bytes used to encode a number, 
+                         stores the number of bytes used to encode a number,
                          followed by that many bytes holding a numeric value */
+                        printf("\n\nReceive new message...\n");
                         short message_size = (short) ntohs(*(short *)buf);
                         printf("Message size should be %hi, and it is %d\n", message_size, count);
                         if (message_size != count) {
@@ -305,25 +326,12 @@ int main(int argc, char **argv) {
                             
                         }
                         
-                        struct timeval sendTime;
-                        gettimeofday(&sendTime, NULL);
-                        printf("Current time: %ld\n", sendTime.tv_sec);
-                        
                         /* The ping message formatted as follows. The first two bytes store the size of the ping message.
                          The next eight bytes store timestamp in both seconds and microseconds. The rest are actualdata. */
                         sendbuffer = (char *) malloc(500);
-                        *(short *) sendbuffer = (short) htons(message_size);
-                        *(long *) (sendbuffer+2) = (unsigned long) htonl(sendTime.tv_sec);
-                        *(long *) (sendbuffer+6) = (unsigned long) htonl(sendTime.tv_usec);
-                        *(char *) (sendbuffer+10) = *(char *)(buf+10);
+                        setMessage(sendbuffer, message_size);
                         
-                        printf("########### %hi\n", (short) ntohs(*(short *)sendbuffer));
-                        
-                        printf("@@@@@@@@@@@%p, %hi\n", sendbuffer, message_size);
-                        printf("~~~~~~~~~ %hi\n", *(short *)sendbuffer);
-                        printf("~~~~~~~~~ %ld\n", *(long *)(sendbuffer+2));
-                        printf("~~~~~~~~~ %ld\n", *(long *)(sendbuffer+6));
-                        printf("~~~~~~~~~ %c\n", *(char *)(sendbuffer+10));
+                        printf("Send message as  %hi, %ld, %d, %c\n", *(short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6), *(char *)(sendbuffer+10));
                         
                         /* send ping message */
                         size_t bytesent = send(current->socket, sendbuffer, message_size, 0);

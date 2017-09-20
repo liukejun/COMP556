@@ -9,6 +9,36 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+void setMessage(char * buffer, short message_size) {
+    struct timeval time;
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
+    double time_in_mill1 =
+    (time.tv_sec) * 1000 + (time.tv_usec) / 1000.0 ;
+    
+    printf("sec: %ld. usec: %d. message_size: %hi\n", time.tv_sec, time.tv_usec, message_size);
+    printf("htonl(sec): %ld. htonl(usec): %d. htons(message_size): %hi.\n", (long)htonl(time.tv_sec), (int)htonl(time.tv_usec), (short)htons(message_size));
+    printf("ntonl(htonl(sec)): %ld. ntonl(htonl(usec)): %d. ntons(htons(message_size)): %hi.\n", (long)ntohl(htonl(time.tv_sec)), (int)ntohl(htonl(time.tv_usec)), (short)ntohl(htons(message_size)));
+    
+    *(short *) buffer = (short) htons(message_size);
+    *(long *) (buffer + 2) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 6) = (int) htonl(time.tv_usec);
+    *(char *) (buffer + 10) = 'z';
+    
+    printf("Set message as  %hi, %ld, %d, %c\n", *(short *)buffer, *(long *)(buffer+2), *(int *)(buffer+6), *(char *)(buffer+10));
+}
+
+void getInterval(char *sendData, char *receiveData) {
+    long sendSec = (long) ntohl(*(long *) (sendData + 2));
+    int sendUsec = (int) ntohl(*(int *) (sendData + 6));
+    long receiveSec = (long) ntohl(*(long *) (receiveData + 2));
+    int receiveUsec = (int) ntohl(*(int *) (receiveData + 6));
+    
+    printf("Client sent message at %ld.%d and receive reply at %ld.%d\n",
+           sendSec, sendUsec, receiveSec, receiveUsec);
+}
+
 /* simple client, takes two parameters, the server domain name,
  and the server port number */
 
@@ -106,33 +136,19 @@ int main(int argc, char** argv) {
     {
         printf("Here is what we got: %s", buffer);
     }
-        
+    
     while (message_count > 0) {
         
-        printf("Sending message %d", message_count);
-        /* obtain current time before sending the message*/
-        struct timeval sendTime;
-        gettimeofday(&sendTime, NULL);
-        printf("Current time: %ld\n", (long)sendTime.tv_sec);
+        printf("\n\nSending message No.%d...\n", message_count);
         
         /* The ping message formatted as follows. The first two bytes store the size of the ping message.
          The next eight bytes store timestamp in both seconds and microseconds. The rest are actual data. */
-        *(short *) sendbuffer = (short) htons(message_size);
-        *(long *) (sendbuffer+2) = (unsigned long) htonl(sendTime.tv_sec);
-        *(long *) (sendbuffer+6) = (unsigned long) htonl(sendTime.tv_usec);
-        *(char *) (sendbuffer+10) = 'z';
+        setMessage(sendbuffer, message_size);
         
-        printf("########### %hi\n", (short) ntohs(*(short *)sendbuffer));
-        
-        printf("@@@@@@@@@@@%p, %hi\n", sendbuffer, message_size);
-        printf("~~~~~~~~~ %hi\n", *(short *)sendbuffer);
-        printf("~~~~~~~~~ %ld\n", *(long *)(sendbuffer+2));
-        printf("~~~~~~~~~ %ld\n", *(long *)(sendbuffer+6));
-        printf("~~~~~~~~~ %c\n", *(char *)(sendbuffer+10));
+        printf("Send message as  %hi, %ld, %d, %c\n", *(short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6), *(char *)(sendbuffer+10));
         
         /* send ping message */
         size_t bytesent = send(sock, sendbuffer, message_size, 0);
-        printf("^^^^ %zu bytes sent\n", bytesent);
         message_count--;
         
         /* receive pong message from server */
@@ -158,7 +174,8 @@ int main(int argc, char** argv) {
         }
         else
         {
-            printf("Here is what we got: %c", *(char *)(buffer+10));
+            printf("Here is what we got: %c\n", *(char *)(buffer+10));
+            getInterval(sendbuffer, buffer);
         }
     }
     /* free the resources, generally important! */
