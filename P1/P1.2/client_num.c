@@ -202,7 +202,22 @@ int main(int argc, char** argv) {
              if not, more calls to recv is needed to get a complete message.
              */
             printf("Message incomplete, something is still being transmitted. %d/%d has been received. Receive again\n", receive_size, msgr_size);
-            receive_size += recv(sock, buffer + receive_size, size - receive_size, 0);
+            count = recv(sock, buffer + receive_size, size - receive_size, 0);
+            if (count <= 0) {
+                /* something is wrong */
+                if (count == 0) {
+                    printf("Server closed connection.\n");
+                } else {
+                    perror("error receiving from server");
+                }
+
+                /* connection is closed, clean up */
+                close(sock);
+                free(buffer);
+                free(sendbuffer);
+                return 0;
+            }
+            receive_size += count;
         }
        
         printf("Receive %d| %ld| %d| %s\n", msgr_size, (long) ntohl(*(long *)(buffer+2)), (int) ntohl(*(int *)(buffer+6)), buffer+10);

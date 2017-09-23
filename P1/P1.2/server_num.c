@@ -99,14 +99,17 @@ char* readFile(FILE *fp) {
   return intoMe;
 }
 /* Receive whole message from current client and store in buf */
-unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, int sock, struct node *client) {
+unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, struct node *sock, struct node head) {
+  unsigned short received = byte_received;
+  int count;
   unsigned short message_size = (unsigned short) ntohs(*(unsigned short *)buf);
+  printf("1 R %d \n", byte_received);
   if (message_size > BUF_LEN) {
     perror("Unnable to buffer.\n");
     return 0;
   }
 
-  while (message_size != byte_received)
+  while (message_size != received)
   {
     /* In general, TCP recv can return any number of bytes, not
      necessarily forming a complete message, so you need to
@@ -114,11 +117,25 @@ unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, int
      if not, more calls to recv is needed to get a complete message.
      */
     printf("Message incomplete, something is still being transmitted. %d/%d as been received. Continue receiving.."
-               ".\n", byte_received, message_size);
-    byte_received += recv(sock, buf + byte_received, BUF_LEN - byte_received, 0);
+               ".\n", received, message_size);
+    count = recv(sock->socket, buf + received, BUF_LEN - received, 0);
+    if (count <= 0) {
+      /* something is wrong */
+      if (count == 0) {
+        printf("Client closed connection. Client IP address is: %s\n", inet_ntoa(sock->client_addr.sin_addr));
+      } else {
+        perror("error receiving from a client");
+      }
+
+      /* connection is closed, clean up */
+      close(sock->socket);
+      dump(&head, sock->socket);
+      exit(-1);
+    }
+    received += count;
   }
   /* a complete message is received, print it out */
-  printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(client->client_addr.sin_addr));
+  printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(sock->client_addr.sin_addr));
   printf("%s\n", buf + 10);
   printf("--------------------------------------------------------------------------\n\n\n");
   return byte_received;
@@ -126,16 +143,16 @@ unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, int
 
 
 /* Receive GET request from client and store in buf. */
-int receiveGETRequest(char *buf, int BUF_LEN, int byte_received, int sock, struct node *client) {
+int receiveGETRequest(char *buf, int BUF_LEN, int byte_received, struct node *sock) {
   while (!strstr(buf, "\r\n\r\n")) {
     /* "\r\n\r\n" is expected at the end of the GET request message to ensure the whole message is received from
      * client */
     printf("Message incomplete, something is still being transmitted.\n");
-    byte_received += recv(sock, buf + byte_received, BUF_LEN - byte_received, 0);
+    byte_received += recv(sock->socket, buf + byte_received, BUF_LEN - byte_received, 0);
   }
 
   /* a complete message is received, print it out */
-  printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(client->client_addr.sin_addr));
+  printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(sock->client_addr.sin_addr));
   printf("%s\n", buf);
   printf("--------------------------------------------------------------------------\n");
   return byte_received;
@@ -229,12 +246,12 @@ void setHTTPMsg(char *request, char *root, char *sendbuffer) {
 }
 
 
-size_t replyHTTPRequest(char *request, char *root, struct node *client) {
+size_t replyHTTPRequest(char *request, char *root, struct node *sock) {
   int BUF_LEN = 70000;
   size_t byteSent;
   char *sendBuffer = (char *)malloc(BUF_LEN); //????????????????????
   setHTTPMsg(request, root, sendBuffer);
-  byteSent = send(client->socket, sendBuffer, BUF_LEN, 0);
+  byteSent = send(sock->socket, sendBuffer, BUF_LEN, 0);
 
   /* send message and print it out */
   printf("#########################Message sent##################\n");
@@ -246,22 +263,25 @@ size_t replyHTTPRequest(char *request, char *root, struct node *client) {
 
 
 /* Send Pong message to client */
-size_t sendPongMessage(char *buf, unsigned short message_size, struct node *client) {
-
+size_t sendPongMessage(char *buf, unsigned short message_size, struct node *sock) {
+  int BUF_LEN = 70000;
   char *sendbuffer;
-  sendbuffer = (char *) malloc(70000);
+  sendbuffer = (char *) malloc(BUF_LEN);
   setPongMessage(sendbuffer, message_size, buf);
 
   printf("Send message as  %d, %ld, %d, %s\n", *(unsigned short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6), sendbuffer+10);
 
   /* send ping message */
-  size_t bytesent = send(client->socket, sendbuffer, message_size, 0);
+  size_t bytesent = send(sock->socket, sendbuffer, message_size, 0);
 
   /* send message and print it out */
   printf("#########################Message sent##################\n");
   printf("%s\n", sendbuffer + 10);
   printf("########################################################\n\n\n");
   printf("^^^^ %zu bytes sent\n", bytesent);
+
+  /* remember to clear the memory */
+  memset (sendbuffer, 0, BUF_LEN);
   free(sendbuffer);
   return bytesent;
 }
@@ -508,7 +528,7 @@ int main(int argc, char **argv) {
                         printf("\n\nReceive message from client %s...\n", inet_ntoa(current->client_addr.sin_addr));
                         if (argc == 4 && strcmp(mode, "www") == 0) {
                           printf("Server in www mode. Root directory is %s\n", root);
-                          receiveGETRequest(buf, BUF_LEN, count, sock, current);
+                          receiveGETRequest(buf, BUF_LEN, count, current);
                           replyHTTPRequest(buf, root, current);
                           printf("exit");
                           /* connection is closed, clean up */
@@ -518,7 +538,7 @@ int main(int argc, char **argv) {
                         } else {
                           /* Server in PingPong mode. Send the content back to client with updated timestamp. */
                           printf("Server in PingPong mode.\n");
-                          unsigned short message_size = receivePingMessage(buf, BUF_LEN, count, sock, current);
+                          unsigned short message_size = receivePingMessage(buf, BUF_LEN, count, current, head);
                           sendPongMessage(buf, message_size, current);
                         }
                     }
