@@ -43,8 +43,6 @@ P1/P1.2/client_num.dSYM/Contents/Resources/DWARF/client_num
 
 *.cmake
 
-*.txt
-
 *.bin
 
 *.out
@@ -84,3 +82,15 @@ P1/P1.2/cmake-build-debug/CMakeFiles/feature_tests.cxx
 P1/P1.2/cmake-build-debug/CMakeFiles/Makefile2
 
 P1/P1.2/cmake-build-debug/CMakeFiles/P1.dir/build.make
+
+P1/P1.2/cmake-build-debug/CMakeCache.txt
+
+P1/P1.2/cmake-build-debug/CMakeFiles/clion-environment.txt
+
+P1/P1.2/cmake-build-debug/CMakeFiles/clion-log.txt
+
+P1/P1.2/cmake-build-debug/CMakeFiles/P1.dir/link.txt
+
+P1/P1.2/cmake-build-debug/CMakeFiles/TargetDirectories.txt
+
+P1/P1.2/CMakeLists.txt
