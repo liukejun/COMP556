@@ -116,29 +116,35 @@ unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, str
      parse the input to see if a complete message has been received.
      if not, more calls to recv is needed to get a complete message.
      */
-    printf("Message incomplete, something is still being transmitted. %d/%d as been received. Continue receiving.."
+    printf("Message incomplete, something is still being transmitted. %d/%d has been received. Continue receiving.."
                ".\n", received, message_size);
     count = recv(sock->socket, buf + received, BUF_LEN - received, 0);
     if (count <= 0) {
       /* something is wrong */
       if (count == 0) {
         printf("Client closed connection. Client IP address is: %s\n", inet_ntoa(sock->client_addr.sin_addr));
+        /* connection is closed, clean up */
+        close(sock->socket);
+        dump(&head, sock->socket);
+        exit(-1);
+      } else if (errno == EAGAIN){
+        printf ("non-blocking caused error: %d", errno);
       } else {
         perror("error receiving from a client");
+        /* connection is closed, clean up */
+        close(sock->socket);
+        dump(&head, sock->socket);
+        exit(-1);
       }
-
-      /* connection is closed, clean up */
-      close(sock->socket);
-      dump(&head, sock->socket);
-      exit(-1);
     }
     received += count;
   }
   /* a complete message is received, print it out */
+  printf("Message completed. %d/%d has been received.\n", received, message_size);
   printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(sock->client_addr.sin_addr));
   printf("%s\n", buf + 10);
   printf("--------------------------------------------------------------------------\n\n\n");
-  return byte_received;
+  return received;
 }
 
 
@@ -302,6 +308,12 @@ int main(int argc, char **argv) {
     struct sockaddr_in sin, addr;
     unsigned short server_port = atoi(argv[1]);
     
+    if (server_port < 18000 || server_port > 18200)
+    {
+        perror("Port should be between 18000 and 18200!");
+        abort();
+    }
+
     /* mode of the server */
     int MODE_LEN = 100;
     char *mode = (char *)malloc(MODE_LEN);

@@ -49,7 +49,7 @@ char * generateLongMsg() {
 void setMessage(char * buffer, unsigned short message_size) {
     struct timeval time;
     int i = 10;
-    char *content;
+    // char *content;
     if (gettimeofday(&time, NULL) == -1) {
         printf("Fail to get time.\n");
     }
@@ -63,8 +63,8 @@ void setMessage(char * buffer, unsigned short message_size) {
 //    for (; i < message_size; i++) {
 //        *(char *) (buffer + i) = 'k';
 //    }
-    content = generateLongMsg();
-    strncat(buffer + 10, content, message_size - 10);
+    // content = generateLongMsg();
+    // strncat(buffer + 10, content, message_size - 10);
 }
 
 
@@ -97,14 +97,41 @@ int main(int argc, char** argv) {
     struct hostent *host = gethostbyname(argv[1]);
     unsigned int server_addr = *(unsigned int *) host->h_addr_list[0];
     
+    // hostname should be one of clear servers
+
+
+
     /* server port number */
     unsigned short server_port = atoi (argv[2]);
-    
+
+    // if port < 10 or > 65535
+    if (server_port < 18000 || server_port > 18200)
+    {
+        perror("Port should be between 18000 and 18200!");
+        abort();
+    }
+
     /* The size in bytes of each message to send */
     unsigned short message_size = atoi (argv[3]);
+
+    // if message_size < 10 or > 65535
+    if (message_size < 10 || message_size > 65535)
+    {
+        perror("Message size should be between 10 and 65535!");
+        abort();
+    }
+
     /* The number of message exchanges to perform */
     int message_count = atoi (argv[4]);
     
+    // if count < 1 or > 10000
+    if (message_count < 1 || message_count > 10000)
+    {   
+        printf("count %d\n", message_count);
+        perror("Count should be between 1 and 10000!");
+        abort();
+    }
+
     printf("user input: %d %d \n", message_size, message_count);
     
     char *buffer, *sendbuffer;
@@ -171,7 +198,10 @@ int main(int argc, char** argv) {
             tvsecStart = (long) ntohl(*(long *) (sendbuffer + 2));
             tvusecStart = (int) ntohl(*(int *) (sendbuffer + 6));
             printf("Start time: %ld.%d\n\n", tvsecStart, tvusecStart);
-            
+            // just need to add the data to sendbuffer once
+            char *content;
+            content = generateLongMsg();
+            strncat(sendbuffer + 10, content, message_size - 10);
         }
         
         printf("Send %d| %ld| %d| %s\n", *(unsigned short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6),sendbuffer+10);
@@ -180,6 +210,10 @@ int main(int argc, char** argv) {
         int bytesent = send(sock, sendbuffer, message_size, 0);
         printf("%d sent\n", bytesent);
         
+        // should also check bytesent here
+
+
+
         sendCount--;
         
         /* receive pong message from server */
@@ -222,8 +256,16 @@ int main(int argc, char** argv) {
        
         printf("Receive %d| %ld| %d| %s\n", msgr_size, (long) ntohl(*(long *)(buffer+2)), (int) ntohl(*(int *)(buffer+6)), buffer+10);
         if (sendCount == 0) {
-            tvsecEnd = (long) ntohl(*(long *) (buffer + 2));
-            tvusecEnd = (int) ntohl(*(int *) (buffer + 6));
+            // tvsecEnd = (long) ntohl(*(long *) (buffer + 2));
+            // tvusecEnd = (int) ntohl(*(int *) (buffer + 6));
+            // after we receive message from server, we get current time stamp to measure
+            // total cost of the time
+            struct timeval time;
+            if (gettimeofday(&time, NULL) == -1) {
+                printf("Fail to get time.\n");
+            }
+            tvsecEnd = time.tv_sec;
+            tvusecEnd = time.tv_usec;
             printf("End time: %ld.%d", tvsecEnd, tvusecEnd);
             estimateDelay(tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
         }
