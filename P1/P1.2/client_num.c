@@ -54,9 +54,9 @@ void setMessage(char * buffer, unsigned short message_size) {
         printf("Fail to get time.\n");
     }
     
-    printf("sec: %ld. usec: %d. message_size: %d\n", time.tv_sec, time.tv_usec, message_size);
-    printf("htonl(sec): %ld. htonl(usec): %d. htons(message_size): %d.\n", (long)htonl(time.tv_sec), (int)htonl(time.tv_usec), htons(message_size));
-    printf("ntonl(htonl(sec)): %ld. ntonl(htonl(usec)): %d. ntons(htons(message_size)): %d.\n", (long)ntohl(htonl(time.tv_sec)), (int)ntohl(htonl(time.tv_usec)), ntohs(htons(message_size)));
+    // printf("sec: %ld. usec: %d. message_size: %d\n", time.tv_sec, time.tv_usec, message_size);
+    // printf("htonl(sec): %ld. htonl(usec): %d. htons(message_size): %d.\n", (long)htonl(time.tv_sec), (int)htonl(time.tv_usec), htons(message_size));
+    // printf("ntonl(htonl(sec)): %ld. ntonl(htonl(usec)): %d. ntons(htons(message_size)): %d.\n", (long)ntohl(htonl(time.tv_sec)), (int)ntohl(htonl(time.tv_usec)), ntohs(htons(message_size)));
     *(unsigned short *) buffer = (unsigned short) htons(message_size);
     *(long *) (buffer + 2) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 6) = (int) htonl(time.tv_usec);
@@ -69,17 +69,18 @@ void setMessage(char * buffer, unsigned short message_size) {
 
 
 
-void estimateDelay(long tvsecStart, int tvusecStart, long tvsecEnd, int tvusecEnd) {
-    printf("\n\n===================Calculating=======================\n");
-    printf("%ld | %d | %ld | %d\n", tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
+float estimateDelay(long tvsecStart, int tvusecStart, long tvsecEnd, int tvusecEnd) {
+    // printf("\n\n===================Calculating=======================\n");
+    // printf("%ld | %d | %ld | %d\n", tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
     long i_tvsec = tvsecEnd - tvsecStart;
     int i_tvusec = tvusecEnd - tvusecStart;
     if (i_tvusec < 0) {
         i_tvsec--;
         i_tvusec += 1000000;
     }
-    long interval = i_tvsec * 1000 + i_tvusec / 1000;
-    printf("It takes %ld to transmit all messages between client and server.\n", interval);
+    float interval = i_tvsec * 1000.0 + i_tvusec / 1000.0;
+    return interval;
+    // printf("It takes %.3f to transmit all messages between client and server.\n", interval);
 }
 
 /* simple client, takes two parameters, the server domain name,
@@ -143,6 +144,7 @@ int main(int argc, char** argv) {
     int tvusecStart;
     long tvsecEnd;
     int tvusecEnd;
+    float totalTime = 0.0;
     
     /* allocate a memory buffer in the heap */
     /* putting a buffer on the stack like:
@@ -188,27 +190,29 @@ int main(int argc, char** argv) {
     
     while (sendCount > 0) {
         
-        printf("\n\nSending message No.%d...\n", sendCount);
+        // printf("\n\nSending message No.%d...\n", sendCount);
         
         /* The ping message formatted as follows. The first two bytes store the size of the ping message.
          The next eight bytes store timestamp in both seconds and microseconds. The rest are actual data. */
-        setMessage(sendbuffer, message_size);
+        
         
         if (sendCount == message_count) {
-            tvsecStart = (long) ntohl(*(long *) (sendbuffer + 2));
-            tvusecStart = (int) ntohl(*(int *) (sendbuffer + 6));
-            printf("Start time: %ld.%d\n\n", tvsecStart, tvusecStart);
             // just need to add the data to sendbuffer once
             char *content;
             content = generateLongMsg();
             strncat(sendbuffer + 10, content, message_size - 10);
+            setMessage(sendbuffer, message_size);
+        } else {
+            setMessage(sendbuffer, message_size);
         }
-        
-        printf("Send %d| %ld| %d| %s\n", *(unsigned short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6),sendbuffer+10);
+        tvsecStart = (long) ntohl(*(long *) (sendbuffer + 2));
+        tvusecStart = (int) ntohl(*(int *) (sendbuffer + 6));
+        printf("Start time: %ld.%d\n\n", tvsecStart, tvusecStart);
+        // printf("Send %d| %ld| %d| %s\n", *(unsigned short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6),sendbuffer+10);
         
         /* send ping message */
         int bytesent = send(sock, sendbuffer, message_size, 0);
-        printf("%d sent\n", bytesent);
+        // printf("%d sent\n", bytesent);
         
         // should also check bytesent here
 
@@ -235,7 +239,7 @@ int main(int argc, char** argv) {
              parse the input to see if a complete message has been received.
              if not, more calls to recv is needed to get a complete message.
              */
-            printf("Message incomplete, something is still being transmitted. %d/%d has been received. Receive again\n", receive_size, msgr_size);
+            // printf("Message incomplete, something is still being transmitted. %d/%d has been received. Receive again\n", receive_size, msgr_size);
             count = recv(sock, buffer + receive_size, size - receive_size, 0);
             if (count <= 0) {
                 /* something is wrong */
@@ -254,8 +258,8 @@ int main(int argc, char** argv) {
             receive_size += count;
         }
        
-        printf("Receive %d| %ld| %d| %s\n", msgr_size, (long) ntohl(*(long *)(buffer+2)), (int) ntohl(*(int *)(buffer+6)), buffer+10);
-        if (sendCount == 0) {
+        // printf("Receive %d| %ld| %d| %s\n", msgr_size, (long) ntohl(*(long *)(buffer+2)), (int) ntohl(*(int *)(buffer+6)), buffer+10);
+        // if (sendCount == 0) {
             // tvsecEnd = (long) ntohl(*(long *) (buffer + 2));
             // tvusecEnd = (int) ntohl(*(int *) (buffer + 6));
             // after we receive message from server, we get current time stamp to measure
@@ -266,9 +270,12 @@ int main(int argc, char** argv) {
             }
             tvsecEnd = time.tv_sec;
             tvusecEnd = time.tv_usec;
-            printf("End time: %ld.%d", tvsecEnd, tvusecEnd);
-            estimateDelay(tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
-        }
+            // printf("End time: %ld.%d", tvsecEnd, tvusecEnd);
+            totalTime += estimateDelay(tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
+        // }
+            if (sendCount == 0) {
+                printf("It takes %.3f to transmit all messages between client and server.\n", totalTime);
+            }
     }
     /* free the resources, generally important! */
     close(sock);

@@ -103,7 +103,7 @@ unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, str
   unsigned short received = byte_received;
   int count;
   unsigned short message_size = (unsigned short) ntohs(*(unsigned short *)buf);
-  printf("1 R %d \n", byte_received);
+  // printf("1 R %d \n", byte_received);
   if (message_size > BUF_LEN) {
     perror("Unnable to buffer.\n");
     return 0;
@@ -116,8 +116,8 @@ unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, str
      parse the input to see if a complete message has been received.
      if not, more calls to recv is needed to get a complete message.
      */
-    printf("Message incomplete, something is still being transmitted. %d/%d has been received. Continue receiving.."
-               ".\n", received, message_size);
+    // printf("Message incomplete, something is still being transmitted. %d/%d has been received. Continue receiving.."
+    //            ".\n", received, message_size);
     count = recv(sock->socket, buf + received, BUF_LEN - received, 0);
     if (count <= 0) {
       /* something is wrong */
@@ -128,7 +128,7 @@ unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, str
         dump(&head, sock->socket);
         exit(-1);
       } else if (errno == EAGAIN){
-        printf ("non-blocking caused error: %d", errno);
+        // printf ("non-blocking caused error: %d", errno);
       } else {
         perror("error receiving from a client");
         /* connection is closed, clean up */
@@ -140,10 +140,10 @@ unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, str
     received += count;
   }
   /* a complete message is received, print it out */
-  printf("Message completed. %d/%d has been received.\n", received, message_size);
-  printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(sock->client_addr.sin_addr));
-  printf("%s\n", buf + 10);
-  printf("--------------------------------------------------------------------------\n\n\n");
+  // printf("Message completed. %d/%d has been received.\n", received, message_size);
+  // printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(sock->client_addr.sin_addr));
+  // printf("%s\n", buf + 10);
+  // printf("--------------------------------------------------------------------------\n\n\n");
   return received;
 }
 
@@ -260,35 +260,32 @@ size_t replyHTTPRequest(char *request, char *root, struct node *sock) {
   byteSent = send(sock->socket, sendBuffer, BUF_LEN, 0);
 
   /* send message and print it out */
-  printf("#########################Message sent##################\n");
-  printf("%s\n", sendBuffer);
-  printf("########################################################\n\n\n");
-  printf("^^^^ %zu bytes sent\n", byteSent);
+  // printf("#########################Message sent##################\n");
+  // printf("%s\n", sendBuffer);
+  // printf("########################################################\n\n\n");
+  // printf("^^^^ %zu bytes sent\n", byteSent);
   return byteSent;
 }
 
 
 /* Send Pong message to client */
-size_t sendPongMessage(char *buf, unsigned short message_size, struct node *sock) {
+size_t sendPongMessage(char *sendbuffer, char *buf, unsigned short message_size, struct node *sock) {
   int BUF_LEN = 70000;
-  char *sendbuffer;
-  sendbuffer = (char *) malloc(BUF_LEN);
+  
   setPongMessage(sendbuffer, message_size, buf);
 
-  printf("Send message as  %d, %ld, %d, %s\n", *(unsigned short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6), sendbuffer+10);
+  // printf("Send message as  %d, %ld, %d, %s\n", *(unsigned short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6), sendbuffer+10);
 
   /* send ping message */
   size_t bytesent = send(sock->socket, sendbuffer, message_size, 0);
 
   /* send message and print it out */
-  printf("#########################Message sent##################\n");
-  printf("%s\n", sendbuffer + 10);
-  printf("########################################################\n\n\n");
-  printf("^^^^ %zu bytes sent\n", bytesent);
+  // printf("#########################Message sent##################\n");
+  // printf("%s\n", sendbuffer + 10);
+  // printf("########################################################\n\n\n");
+  // printf("^^^^ %zu bytes sent\n", bytesent);
 
   /* remember to clear the memory */
-  memset (sendbuffer, 0, BUF_LEN);
-  free(sendbuffer);
   return bytesent;
 }
 
@@ -355,6 +352,8 @@ int main(int argc, char **argv) {
     /* a buffer to read data */
     char *buf;
     int BUF_LEN = 70000;
+    char *sendbuffer;
+    sendbuffer = (char *) malloc(BUF_LEN);
     
     buf = (char *)malloc(BUF_LEN);
     
@@ -537,7 +536,7 @@ int main(int argc, char **argv) {
                         /* in this case, we expect a message where the first byte
                          stores the number of bytes used to encode a number,
                          followed by that many bytes holding a numeric value */
-                        printf("\n\nReceive message from client %s...\n", inet_ntoa(current->client_addr.sin_addr));
+                        // printf("\n\nReceive message from client %s...\n", inet_ntoa(current->client_addr.sin_addr));
                         if (argc == 4 && strcmp(mode, "www") == 0) {
                           printf("Server in www mode. Root directory is %s\n", root);
                           receiveGETRequest(buf, BUF_LEN, count, current);
@@ -549,9 +548,10 @@ int main(int argc, char **argv) {
                           dump(&head, current->socket);
                         } else {
                           /* Server in PingPong mode. Send the content back to client with updated timestamp. */
-                          printf("Server in PingPong mode.\n");
+                          // printf("Server in PingPong mode.\n");
                           unsigned short message_size = receivePingMessage(buf, BUF_LEN, count, current, head);
-                          sendPongMessage(buf, message_size, current);
+                          sendPongMessage(sendbuffer, buf, message_size, current);
+                          memset (sendbuffer, 0, BUF_LEN);
                         }
                     }
                 }
