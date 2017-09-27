@@ -64,8 +64,8 @@ void add(struct node *head, int socket, struct sockaddr_in addr) {
  * Return parameter: 0 as FALSE, 1 as TRUE */
 int validateUri(char *uri) {
   int i;
-  for(i = 1; uri[i]; i++) {
-    if (uri[i - 1] == '.' && uri[i] == '.') {
+  for(i = 2; uri[i]; i++) {
+    if (uri[i - 2] == '.' && uri[i - 1] == '.' && uri[i] == '/') {
       printf("Parent directory (..) path names not supported\n");
       return 0;
     }
@@ -98,70 +98,27 @@ char* readFile(FILE *fp) {
   }
   return intoMe;
 }
-/* Receive whole message from current client and store in buf */
-unsigned short receivePingMessage(char *buf, int BUF_LEN, int byte_received, struct node *sock, struct node head) {
-  unsigned short received = byte_received;
-  int count;
-  unsigned short message_size = (unsigned short) ntohs(*(unsigned short *)buf);
-  // printf("1 R %d \n", byte_received);
-  if (message_size > BUF_LEN) {
-    perror("Unnable to buffer.\n");
-    return 0;
-  }
-
-  while (message_size != received)
-  {
-    /* In general, TCP recv can return any number of bytes, not
-     necessarily forming a complete message, so you need to
-     parse the input to see if a complete message has been received.
-     if not, more calls to recv is needed to get a complete message.
-     */
-    // printf("Message incomplete, something is still being transmitted. %d/%d has been received. Continue receiving.."
-    //            ".\n", received, message_size);
-    count = recv(sock->socket, buf + received, BUF_LEN - received, 0);
-    if (count <= 0) {
-      /* something is wrong */
-      if (count == 0) {
-        printf("Client closed connection. Client IP address is: %s\n", inet_ntoa(sock->client_addr.sin_addr));
-        /* connection is closed, clean up */
-        close(sock->socket);
-        dump(&head, sock->socket);
-        exit(-1);
-      } else if (errno == EAGAIN){
-        // printf ("non-blocking caused error: %d", errno);
-      } else {
-        perror("error receiving from a client");
-        /* connection is closed, clean up */
-        close(sock->socket);
-        dump(&head, sock->socket);
-        exit(-1);
-      }
-    }
-    received += count;
-  }
-  /* a complete message is received, print it out */
-  // printf("Message completed. %d/%d has been received.\n", received, message_size);
-  // printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(sock->client_addr.sin_addr));
-  // printf("%s\n", buf + 10);
-  // printf("--------------------------------------------------------------------------\n\n\n");
-  return received;
-}
 
 
-/* Receive GET request from client and store in buf. */
-int receiveGETRequest(char *buf, int BUF_LEN, int byte_received, struct node *sock) {
-  while (!strstr(buf, "\r\n\r\n")) {
+/* Receive GET request from client and store in buf, append all to receivedbuf.
+ * Return 0 if not complete, 1 if complete message received */
+int receiveGETRequest(char *buf, char *receivedbuf, int BUF_LEN, int byte_received, struct node *sock) {
+  printf("Receiving HTTP request\n");
+  printf("[[[[[[[[[[receivedbuf\n%s\n111111111buf\n%s\n", receivedbuf, buf);
+  /* append more data*/
+  strcat(receivedbuf, buf);
+  printf("[[[[[[[[[[receivedbuf\n%s\n111111111buf\n%s\n", receivedbuf, buf);
+  /* check if whole message received */
+  if (!strstr(receivedbuf, "\r\n\r\n")) {
     /* "\r\n\r\n" is expected at the end of the GET request message to ensure the whole message is received from
      * client */
     printf("Message incomplete, something is still being transmitted.\n");
-    byte_received += recv(sock->socket, buf + byte_received, BUF_LEN - byte_received, 0);
+    return 0;
+  } else {
+    /* message complete */
+    printf("HTTP request msg complete\n");
+    return 1;
   }
-
-  /* a complete message is received, print it out */
-  printf("------------------------- Message received from %s ----------------------\n", inet_ntoa(sock->client_addr.sin_addr));
-  printf("%s\n", buf);
-  printf("--------------------------------------------------------------------------\n");
-  return byte_received;
 }
 
 
@@ -189,6 +146,7 @@ void setHTTPHeader(int status, char *intoMe) {
 
 
 void setHTTPMsg(char *request, char *root, char *sendbuffer) {
+  printf("\n\nSet HTTP MSG\n");
   int MAX_LEN = 100;
   char method[MAX_LEN], uri[MAX_LEN], version[MAX_LEN], loc[MAX_LEN];
   FILE *fp;
@@ -232,18 +190,18 @@ void setHTTPMsg(char *request, char *root, char *sendbuffer) {
 }
 
 
-size_t replyHTTPRequest(char *request, char *root, struct node *sock) {
+size_t replyHTTPRequest(char *request, char *sendbuffer, char *root, struct node *sock) {
+  printf("\n\nreply HTTP request\n");
   int BUF_LEN = 70000;
   size_t byteSent;
-  char *sendBuffer = (char *)malloc(BUF_LEN); //????????????????????
-  setHTTPMsg(request, root, sendBuffer);
-  byteSent = send(sock->socket, sendBuffer, BUF_LEN, 0);
+  setHTTPMsg(request, root, sendbuffer);
+  byteSent = send(sock->socket, sendbuffer, BUF_LEN, 0);
 
   /* send message and print it out */
-  // printf("#########################Message sent##################\n");
-  // printf("%s\n", sendBuffer);
-  // printf("########################################################\n\n\n");
-  // printf("^^^^ %zu bytes sent\n", byteSent);
+  printf("#########################Message sent##################\n");
+  printf("%s\n", sendbuffer);
+  printf("########################################################\n\n\n");
+  printf("^^^^ %zu bytes sent\n", byteSent);
   return byteSent;
 }
 
@@ -307,8 +265,9 @@ int main(int argc, char **argv) {
     /* a buffer to read data */
     char *buf;
     int BUF_LEN = 70000;
-    char *sendbuffer;
+    char *sendbuffer, *receivedbuf;
     sendbuffer = (char *) malloc(BUF_LEN);
+    receivedbuf = (char *) malloc(BUF_LEN);
     unsigned short MSG_SIZE;
     int byte_received = 0;
     
@@ -432,8 +391,8 @@ int main(int argc, char **argv) {
                 
                 /* remember this client connection in our linked list */
                 add(&head, new_sock, addr);
-		//count = recv(new_sock, buf, BUF_LEN, 0);
-               // printf("%s\n", buf + 10);
+		            //count = recv(new_sock, buf, BUF_LEN, 0);
+                 // printf("%s\n", buf + 10);
             }
             /* check other connected sockets, see if there is
              anything to read or some socket is ready to send
@@ -467,61 +426,70 @@ int main(int argc, char **argv) {
                 }
                 if (FD_ISSET(current->socket, &read_set)) {
                     /* we have data from a client */
-                    memset(buf,0,BUF_LEN);
-                    memset(sendbuffer,0,BUF_LEN);
+
+                    /* first of all, clear all buffer memory */
+                    memset(buf, 0, BUF_LEN);
+                    memset(sendbuffer, 0, BUF_LEN);
                     
                     first ++;
                     count = recv(current->socket, buf, BUF_LEN, 0);
-                    printf("first: %d\n", first);
-                  
-                    if (first == 1) {
+
+                    if (count > 0) {
+                      if (argc == 4 && strcmp(mode, "www") == 0) {
+                        /* server in www mode */
+                        printf("Server in www mode. Root directory is %s\n", root);
+                        if (receiveGETRequest(buf, receivedbuf, BUF_LEN, count, current) == 1) {
+                          /* message complete, now generate HTTP response */
+                          replyHTTPRequest(receivedbuf, sendbuffer, root, current);
+                          /* clear all buffer memory*/
+                          memset(receivedbuf, 0, BUF_LEN);
+                          memset(sendbuffer, 0, BUF_LEN);
+                          close(current->socket);
+                          dump(&head, current->socket);
+                          first = 0;
+                        }
+                      } else {
+                        /* server in ping pong mode */
+                        if (first != 1) {
+                          /* append more data */
+                          strcat(sendbuffer, buf);
+                        } else {
+                          /* assign message size section on first receive */
                           MSG_SIZE = (unsigned short) ntohs(*(unsigned short *)buf);
                           *(unsigned short *) sendbuffer = (unsigned short) htons(MSG_SIZE);
                           strcat(sendbuffer + 10, buf + 10);
-                          printf("`````````````````````````````````````\n");
-                           // printf("first time sendbuffer%s\n", sendbuffer+10);
+//                          printf("`````````````````````````````````````\n");
+                          // printf("first time sendbuffer%s\n", sendbuffer+10);
                           // printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
                           // printf("first time buf%s\n", buf+10);
-                    }
-                    if (count > 0) {
-                      printf("Bytes received: %d\n", count);
-                      if (first != 1) {
-                        strcat(sendbuffer, buf);
-                      }
-                      // printf("sendbuffer%s\n", sendbuffer+10);
-                      // printf("buf%s\n", buf+10);
-                      byte_received += count;
-                      printf("byte_received: %d, MSG_SIZE: %d\n", byte_received, MSG_SIZE);
-                      if (byte_received == MSG_SIZE) {
-                        // do sth
-                        if (argc == 4 && strcmp(mode, "www") == 0) {
-                          printf("Server in www mode. Root directory is %s\n", root);
-                          receiveGETRequest(buf, BUF_LEN, count, current);
-                          replyHTTPRequest(buf, root, current);
-                          printf("exit");
-                        } else {
+                        }
+
+                        byte_received += count;
+                        if (byte_received == MSG_SIZE) {
+                          /* all data has been received, time to send pong message back */
                           struct timeval timeStamp;
                           if (gettimeofday(&timeStamp, NULL) == -1) {
                             printf("Fail to get time.\n");
                           }
                           *(long *) (sendbuffer + 2) = (long) htonl(timeStamp.tv_sec);
                           *(int *) (sendbuffer + 6) = (int) htonl(timeStamp.tv_usec);
-                          /* send ping message */
                           size_t bytesent = send(current->socket, sendbuffer, MSG_SIZE, MSG_DONTWAIT);
+                          /* clear first and byte_received, get ready for next message */
                           first = 0;
                           byte_received = 0;
                           /* send message and print it out */
-                          printf("#########################Message sent##################\n");
-                           // printf("send count = %d\n", count);
-                           // printf("Send %d| %ld| %d|...\n", (unsigned short) ntohs(*(unsigned short *)sendbuffer), (long) ntohl(*(long *)(sendbuffer+2)), (int) ntohl(*(int *)(sendbuffer+6)));
-                           // printf("########################################################\n\n\n");
+//                          printf("#########################Message sent##################\n");
+                          // printf("send count = %d\n", count);
+                          // printf("Send %d| %ld| %d|...\n", (unsigned short) ntohs(*(unsigned short *)sendbuffer), (long) ntohl(*(long *)(sendbuffer+2)), (int) ntohl(*(int *)(sendbuffer+6)));
+                          // printf("########################################################\n\n\n");
                           // printf("%s\n", sendbuffer);
-                          
+
                         }
                       }
                     } else if (count == 0) {
+                      /* no more data available to receive and client has been closed */
                       printf("count == 0~~~~~\n");
-                      memset(sendbuffer,0,BUF_LEN);
+                      memset(sendbuffer, 0, BUF_LEN);
                       close(current->socket);
                       dump(&head, current->socket);
                       first = 0;
