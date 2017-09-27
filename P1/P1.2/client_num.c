@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <errno.h>
 
 
 char * generateLongMsg() {
@@ -145,6 +146,7 @@ int main(int argc, char** argv) {
     long tvsecEnd;
     int tvusecEnd;
     float totalTime = 0.0;
+    int first = 0;
     
     /* allocate a memory buffer in the heap */
     /* putting a buffer on the stack like:
@@ -190,7 +192,7 @@ int main(int argc, char** argv) {
     
     while (sendCount > 0) {
         
-        // printf("\n\nSending message No.%d...\n", sendCount);
+        printf("\n\nSending message No.%d...\n", sendCount);
         
         /* The ping message formatted as follows. The first two bytes store the size of the ping message.
          The next eight bytes store timestamp in both seconds and microseconds. The rest are actual data. */
@@ -207,12 +209,13 @@ int main(int argc, char** argv) {
         }
         tvsecStart = (long) ntohl(*(long *) (sendbuffer + 2));
         tvusecStart = (int) ntohl(*(int *) (sendbuffer + 6));
-        printf("Start time: %ld.%d\n\n", tvsecStart, tvusecStart);
-        // printf("Send %d| %ld| %d| %s\n", *(unsigned short *)sendbuffer, *(long *)(sendbuffer+2), *(int *)(sendbuffer+6),sendbuffer+10);
+        // printf("Start time: %ld.%d\n\n", tvsecStart, tvusecStart);
+        // printf("Send %d| %ld| %d| %s\n", (unsigned short) ntohs(*(unsigned short *)sendbuffer), (long) ntohl(*(long *)
+        // (sendbuffer+2)), (int) ntohl(*(int *)(sendbuffer+6)), sendbuffer + 10);
         
         /* send ping message */
         int bytesent = send(sock, sendbuffer, message_size, 0);
-        // printf("%d sent\n", bytesent);
+        printf("%d sent\n", bytesent);
         
         // should also check bytesent here
 
@@ -227,12 +230,14 @@ int main(int argc, char** argv) {
             perror("receive failure");
             abort();
         }
+
         
         /* in this simple example, the message is a string,
          we expect the last byte of the string to be 0, i.e. end of string */
-        unsigned short msgr_size = (unsigned short) ntohs(*(unsigned short *)buffer);
+    
         unsigned short receive_size = count;
-        while (msgr_size != receive_size)
+        printf("received_size: %d, msgr_size: %d\n", receive_size, message_size);
+        while (message_size != receive_size)
         {
             /* In general, TCP recv can return any number of bytes, not
              necessarily forming a complete message, so you need to
@@ -243,12 +248,13 @@ int main(int argc, char** argv) {
             count = recv(sock, buffer + receive_size, size - receive_size, 0);
             if (count <= 0) {
                 /* something is wrong */
-                if (count == 0) {
+                if (count == 0 ) {
                     printf("Server closed connection.\n");
                 } else {
-                    perror("error receiving from server");
+                    if (errno != EAGAIN) {
+                        perror("error receiving from server");
+                    }
                 }
-
                 /* connection is closed, clean up */
                 close(sock);
                 free(buffer);
@@ -258,7 +264,8 @@ int main(int argc, char** argv) {
             receive_size += count;
         }
        
-        // printf("Receive %d| %ld| %d| %s\n", msgr_size, (long) ntohl(*(long *)(buffer+2)), (int) ntohl(*(int *)(buffer+6)), buffer+10);
+        printf("Received\n");
+        //printf("Receive %d| %ld| %d| %s\n\n\n", msgr_size, (long) ntohl(*(long *)(buffer+2)), (int) ntohl(*(int *)(buffer+6)), buffer+10);
         // if (sendCount == 0) {
             // tvsecEnd = (long) ntohl(*(long *) (buffer + 2));
             // tvusecEnd = (int) ntohl(*(int *) (buffer + 6));
@@ -270,7 +277,9 @@ int main(int argc, char** argv) {
             }
             tvsecEnd = time.tv_sec;
             tvusecEnd = time.tv_usec;
-            // printf("End time: %ld.%d", tvsecEnd, tvusecEnd);
+            // printf("Start time: %ld.%d, Received Time: %ld.%d, End time: %ld.%d", (long) ntohl(*(long *)
+        // (sendbuffer+2)), (int) ntohl(*(int *)(sendbuffer+6)), (long) ntohl(*(long *)
+        // (buffer+2)), (int) ntohl(*(int *)(buffer+6)), tvsecEnd, tvusecEnd);
             totalTime += estimateDelay(tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
         // }
             if (sendCount == 0) {

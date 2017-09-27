@@ -309,8 +309,11 @@ int main(int argc, char **argv) {
     int BUF_LEN = 70000;
     char *sendbuffer;
     sendbuffer = (char *) malloc(BUF_LEN);
+    unsigned short MSG_SIZE;
+    int byte_received = 0;
     
     buf = (char *)malloc(BUF_LEN);
+    int first = 0;
     
     /* initialize dummy head node of linked list */
     head.socket = -1;
@@ -432,115 +435,104 @@ int main(int argc, char **argv) {
 		//count = recv(new_sock, buf, BUF_LEN, 0);
                // printf("%s\n", buf + 10);
             }
-            
             /* check other connected sockets, see if there is
              anything to read or some socket is ready to send
              more pending data */
             for (current = head.next; current; current = next) {
                 next = current->next;
-                
-                /* see if we can now do some previously unsuccessful writes */
-                //if (FD_ISSET(current->socket, &write_set)) {
+                if (FD_ISSET(current->socket, &write_set)) {
                     /* the socket is now ready to take more data */
                     /* the socket data structure should have information
                      describing what data is supposed to be sent next.
                      but here for simplicity, let's say we are just
                      sending whatever is in the buffer buf
                      */
-                //    count = send(current->socket, buf, BUF_LEN, MSG_DONTWAIT);
-                //    if (count < 0) {
-                //        if (errno == EAGAIN) {
+                    count = send(current->socket, sendbuffer, BUF_LEN, MSG_DONTWAIT);
+                    if (count < 0) {
+                        if (errno == EAGAIN) {
                             /* we are trying to dump too much data down the socket,
                              it cannot take more for the time being
                              will have to go back to select and wait til select
                              tells us the socket is ready for writing
                              */
-                //        } else {
+                        } else {
                             /* something else is wrong */
-                //        }
-                //    }
+                        }
+                    }
                     /* note that it is important to check count for exactly
                      how many bytes were actually sent even when there are
                      no error. send() may send only a portion of the buffer
                      to be sent.
                      */
-               // }
-                
+                }
                 if (FD_ISSET(current->socket, &read_set)) {
                     /* we have data from a client */
-                    memset(buf,0,BUF_LEN); 
+                    memset(buf,0,BUF_LEN);
+                    memset(sendbuffer,0,BUF_LEN);
+                    
+                    first ++;
                     count = recv(current->socket, buf, BUF_LEN, 0);
-                    if (count <= 0) {
-                        /* something is wrong */
-                        if (count == 0) {
-                            printf("Client closed connection. Client IP address is: %s\n", inet_ntoa(current->client_addr.sin_addr));
-                        } else {
-                            perror("error receiving from a client");
-                        }
-                        
-                        /* connection is closed, clean up */
-                        close(current->socket);
-                        dump(&head, current->socket);
-                    } else {
-                        /* we got count bytes of data from the client */
-                        /* in general, the amount of data received in a recv()
-                         call may not be a complete application message. it
-                         is important to check the data received against
-                         the message format you expect. if only a part of a
-                         message has been received, you must wait and
-                         receive the rest later when more data is available
-                         to be read */
-                        /* in this case, we expect a message where the first byte
-                         stores the number of bytes used to encode a number,
-                         followed by that many bytes holding a numeric value */
-                        // printf("\n\nReceive message from client %s...\n", inet_ntoa(current->client_addr.sin_addr));
+                    printf("first: %d\n", first);
+                  
+                    if (first == 1) {
+                          MSG_SIZE = (unsigned short) ntohs(*(unsigned short *)buf);
+                          *(unsigned short *) sendbuffer = (unsigned short) htons(MSG_SIZE);
+                          strcat(sendbuffer + 10, buf + 10);
+                          printf("`````````````````````````````````````\n");
+                           // printf("first time sendbuffer%s\n", sendbuffer+10);
+                          // printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+                          // printf("first time buf%s\n", buf+10);
+                    }
+                    if (count > 0) {
+                      printf("Bytes received: %d\n", count);
+                      if (first != 1) {
+                        strcat(sendbuffer, buf);
+                      }
+                      // printf("sendbuffer%s\n", sendbuffer+10);
+                      // printf("buf%s\n", buf+10);
+                      byte_received += count;
+                      printf("byte_received: %d, MSG_SIZE: %d\n", byte_received, MSG_SIZE);
+                      if (byte_received == MSG_SIZE) {
+                        // do sth
                         if (argc == 4 && strcmp(mode, "www") == 0) {
                           printf("Server in www mode. Root directory is %s\n", root);
                           receiveGETRequest(buf, BUF_LEN, count, current);
                           replyHTTPRequest(buf, root, current);
                           printf("exit");
-                          /* connection is closed, clean up */
-                          printf("Turn off connection with client %s\n", inet_ntoa(current->client_addr.sin_addr));
-                          close(current->socket);
-                          dump(&head, current->socket);
                         } else {
-                          /* Server in PingPong mode. Send the content back to client with updated timestamp. */
-                          // printf("Server in PingPong mode.\n");
-                        //  unsigned short message_size = receivePingMessage(buf, BUF_LEN, count, current, head);
-                char *readbuf;
-		int READBUF_LEN = 1000;
-		readbuf = (char *) malloc(READBUF_LEN);         
-		 int nextCount = 1;
-          //  do {
-          //      memset(readbuf, 0, READBUF_LEN);
-          //      nextCount = recv(current->socket, readbuf, READBUF_LEN, 0);
-               // printf("read %d count of data", nextCount);
-          //                      if (nextCount > 0) {
-          //                                          count += nextCount;
-          //                                                              strcat(buf + 10, readbuf);
-          //                                                                            } 
-          //      } while (nextCount > 0);
-			  struct timeval timeStamp;
+                          struct timeval timeStamp;
                           if (gettimeofday(&timeStamp, NULL) == -1) {
                             printf("Fail to get time.\n");
                           }
-
-                        //    printf("sec: %ld. usec: %d. message_size: %hi\n", time.tv_sec, time.tv_usec, message_size);
-                        //    printf("htonl(sec): %ld. htonl(usec): %d. htons(message_size): %hi.\n", (long)htonl(time.tv_sec), (int)htonl
-                        // (time.tv_usec), (short)htons(message_size));
-                        //    printf("ntonl(htonl(sec)): %ld. ntonl(htonl(usec)): %d. ntons(htons(message_size)): %hi.\n", (long)ntohl(htonl(time.tv_sec)), (int)ntohl(htonl(time.tv_usec)), (short)ntohl(htons(message_size)));
-
-                          *(long *) (buf + 2) = (long) htonl(timeStamp.tv_sec);
-                          *(int *) (buf + 6) = (int) htonl(timeStamp.tv_usec);
+                          *(long *) (sendbuffer + 2) = (long) htonl(timeStamp.tv_sec);
+                          *(int *) (sendbuffer + 6) = (int) htonl(timeStamp.tv_usec);
                           /* send ping message */
-                          size_t bytesent = send(current->socket, buf, count, MSG_DONTWAIT);
-
+                          size_t bytesent = send(current->socket, sendbuffer, MSG_SIZE, MSG_DONTWAIT);
+                          first = 0;
+                          byte_received = 0;
                           /* send message and print it out */
-                           //printf("#########################Message sent##################\n");
-                           //printf("%s\n", buf + 10);
-                           //printf("########################################################\n\n\n");
+                          printf("#########################Message sent##################\n");
+                           // printf("send count = %d\n", count);
+                           // printf("Send %d| %ld| %d|...\n", (unsigned short) ntohs(*(unsigned short *)sendbuffer), (long) ntohl(*(long *)(sendbuffer+2)), (int) ntohl(*(int *)(sendbuffer+6)));
+                           // printf("########################################################\n\n\n");
                           // printf("%s\n", sendbuffer);
+                          
                         }
+                      }
+                    } else if (count == 0) {
+                      printf("count == 0~~~~~\n");
+                      memset(sendbuffer,0,BUF_LEN);
+                      close(current->socket);
+                      dump(&head, current->socket);
+                      first = 0;
+                    } else {
+                      if (errno != EAGAIN) {
+                        printf("error receiving from a client");
+                        printf("count: %d. first: %d. error: %d\n", count, first, errno);
+                        close(current->socket);
+                        dump(&head, current->socket);
+                        first = 0;
+                      }
                     }
                 }
             }
