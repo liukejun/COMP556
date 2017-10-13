@@ -49,30 +49,16 @@ char * generateLongMsg() {
 }
 void setMessage(char * buffer, unsigned short message_size) {
     struct timeval time;
-    int i = 10;
-    // char *content;
     if (gettimeofday(&time, NULL) == -1) {
         printf("Fail to get time.\n");
     }
-    
-    // printf("sec: %ld. usec: %d. message_size: %d\n", time.tv_sec, time.tv_usec, message_size);
-    // printf("htonl(sec): %ld. htonl(usec): %d. htons(message_size): %d.\n", (long)htonl(time.tv_sec), (int)htonl(time.tv_usec), htons(message_size));
-    // printf("ntonl(htonl(sec)): %ld. ntonl(htonl(usec)): %d. ntons(htons(message_size)): %d.\n", (long)ntohl(htonl(time.tv_sec)), (int)ntohl(htonl(time.tv_usec)), ntohs(htons(message_size)));
     *(unsigned short *) buffer = (unsigned short) htons(message_size);
     *(long *) (buffer + 2) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 6) = (int) htonl(time.tv_usec);
-//    for (; i < message_size; i++) {
-//        *(char *) (buffer + i) = 'k';
-//    }
-    // content = generateLongMsg();
-    // strncat(buffer + 10, content, message_size - 10);
 }
 
 
-
 float estimateDelay(long tvsecStart, int tvusecStart, long tvsecEnd, int tvusecEnd) {
-    // printf("\n\n===================Calculating=======================\n");
-    // printf("%ld | %d | %ld | %d\n", tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
     long i_tvsec = tvsecEnd - tvsecStart;
     int i_tvusec = tvusecEnd - tvusecStart;
     if (i_tvusec < 0) {
@@ -81,7 +67,6 @@ float estimateDelay(long tvsecStart, int tvusecStart, long tvsecEnd, int tvusecE
     }
     float interval = i_tvsec * 1000.0 + i_tvusec / 1000.0;
     return interval;
-    // printf("It takes %.3f to transmit all messages between client and server.\n", interval);
 }
 
 /* simple client, takes two parameters, the server domain name,
@@ -100,8 +85,6 @@ int main(int argc, char** argv) {
     unsigned int server_addr = *(unsigned int *) host->h_addr_list[0];
     
     // hostname should be one of clear servers
-
-
 
     /* server port number */
     unsigned short server_port = atoi (argv[2]);
@@ -133,8 +116,8 @@ int main(int argc, char** argv) {
         perror("Count should be between 1 and 10000!");
         abort();
     }
+    //printf("user input: %d %d \n", message_size, message_count);
 
-    // printf("user input: %d %d \n", message_size, message_count);
     
     char *buffer, *sendbuffer;
     int size = 70000;
@@ -146,7 +129,6 @@ int main(int argc, char** argv) {
     long tvsecEnd;
     int tvusecEnd;
     float totalTime = 0.0;
-    int first = 0;
     
     /* allocate a memory buffer in the heap */
     /* putting a buffer on the stack like:
@@ -191,13 +173,7 @@ int main(int argc, char** argv) {
     }
     
     while (sendCount > 0) {
-        
         // printf("\n\nSending message No.%d...\n", sendCount);
-        
-        /* The ping message formatted as follows. The first two bytes store the size of the ping message.
-         The next eight bytes store timestamp in both seconds and microseconds. The rest are actual data. */
-        
-        
         if (sendCount == message_count) {
             // just need to add the data to sendbuffer once
             char *content;
@@ -209,19 +185,10 @@ int main(int argc, char** argv) {
         }
         tvsecStart = (long) ntohl(*(long *) (sendbuffer + 2));
         tvusecStart = (int) ntohl(*(int *) (sendbuffer + 6));
-        // printf("Start time: %ld.%d\n\n", tvsecStart, tvusecStart);
-        // printf("Send %d| %ld| %d|...\n", (unsigned short) ntohs(*(unsigned short *)sendbuffer), (long) ntohl(*(long *)(sendbuffer+2)), (int) ntohl(*(int *)(sendbuffer+6)));
-        
+        // printf("Send %d| %ld| %d|...\n", (unsigned short) ntohs(*(unsigned short *)sendbuffer), tvsecStart, tvusecStart);
         /* send ping message */
-        int bytesent = send(sock, sendbuffer, message_size, 0);
-        // printf("%d sent\n", bytesent);
-        
-        // should also check bytesent here
-
-
-
+        send(sock, sendbuffer, message_size, 0);
         sendCount--;
-        // printf("Start to receive\n");
         /* receive pong message from server */
         count = recv(sock, buffer, size, 0);
         // printf("receive count: %d\n", count);
@@ -230,10 +197,6 @@ int main(int argc, char** argv) {
             perror("receive failure");
             abort();
         }
-
-        
-        /* in this simple example, the message is a string,
-         we expect the last byte of the string to be 0, i.e. end of string */
     
         unsigned short receive_size = count;
         // printf("received_size: %d, msgr_size: %d\n", receive_size, message_size);
@@ -263,29 +226,19 @@ int main(int argc, char** argv) {
             }
             receive_size += count;
         }
-       
-        // printf("Received\n");
         // printf("Receive %d| %ld| %d| %s\n\n\n", message_size, (long) ntohl(*(long *)(buffer+2)), (int) ntohl(*(int *)(buffer+6)), buffer+10);
-        // if (sendCount == 0) {
-            // tvsecEnd = (long) ntohl(*(long *) (buffer + 2));
-            // tvusecEnd = (int) ntohl(*(int *) (buffer + 6));
-            // after we receive message from server, we get current time stamp to measure
-            // total cost of the time
-            struct timeval time;
-            if (gettimeofday(&time, NULL) == -1) {
-                printf("Fail to get time.\n");
-            }
-            tvsecEnd = time.tv_sec;
-            tvusecEnd = time.tv_usec;
-            // printf("Start time: %ld.%d, Received Time: %ld.%d, End time: %ld.%d", (long) ntohl(*(long *)
-        // (sendbuffer+2)), (int) ntohl(*(int *)(sendbuffer+6)), (long) ntohl(*(long *)
-        // (buffer+2)), (int) ntohl(*(int *)(buffer+6)), tvsecEnd, tvusecEnd);
-            totalTime += estimateDelay(tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
-        // }
-            if (sendCount == 0) {
-                // printf("It takes %.3f to transmit all messages between client and server.\n", totalTime);
-                printf("%d|%d|%.3f\n", message_size, message_count, totalTime);
-            }
+        struct timeval time;
+        if (gettimeofday(&time, NULL) == -1) {
+            printf("Fail to get time.\n");
+        }
+        tvsecEnd = time.tv_sec;
+        tvusecEnd = time.tv_usec;
+        // printf("Start time: %ld.%d, Received Time: %ld.%d, End time: %ld.%d", (long) ntohl(*(long *)(sendbuffer+2)), (int) ntohl(*(int *)(sendbuffer+6)), (long) ntohl(*(long *)(buffer+2)), (int) ntohl(*(int *)(buffer+6)), tvsecEnd, tvusecEnd);
+        totalTime += estimateDelay(tvsecStart, tvusecStart, tvsecEnd, tvusecEnd);
+        if (sendCount == 0) {
+            printf("It takes %.3f per iteration on average to transmit message between client and server.\n", totalTime/message_count);
+            // printf("%d|%d|%.3f\n", message_size, message_count, totalTime);
+        }
     }
     /* free the resources, generally important! */
     close(sock);
