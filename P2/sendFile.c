@@ -70,11 +70,10 @@ int main(int argc, char *argv[]) {
 		if (opt == 'r') {
 			dest = optarg;
 		} else if (opt == 'f') {
-			filePath = optarg;
-			int pathLength = (int)strlen(filePath);
-			tempPath = (char *)malloc(pathLength);
-			strcpy(tempPath, optarg);
-			printf("%.*s", 10, tempPath);
+			// filePath = optarg;
+			int pathLength = (int)strlen(optarg);
+			filePath = (char *)malloc(pathLength);
+			strcpy(filePath, optarg);
 			char** tokens;
 			tokens = str_split(filePath, '/');
 			if (tokens)
@@ -82,34 +81,44 @@ int main(int argc, char *argv[]) {
 		        int i;
 		        for (i = 0; *(tokens + i); i++)
 		        {
-		            printf("%d, [%s]\n", i, *(tokens + i));
 		        }
 		        int j;
 		        for (j = 0; *(tokens + j); j++)
-		        {
-		            if (j == i - 1) {
-		            	fileName = *(tokens + j);
-		            	printf("fileName %s\n", fileName);
+		        {	
+		        	printf("%d\n", i);
+		            if (i != 1 && j == i - 1) {
+		            	int strLen = strlen(*(tokens + j));
+		            	fileName = (char*)malloc(strLen);
+		            	strcpy(fileName, *(tokens + j));
 		            	int substring = pathLength - strlen(fileName);
-		            	printf("%d + %s\n", substring, tempPath);
-		            	int n = sprintf(path, "%.*s", substring, tempPath);
+		            	path = (char*)malloc(substring+1);
+		            	strncpy(path, optarg, substring);
+		            	path[substring] = 0;
 		            } 
 		            free(*(tokens + j));
 		        }
 		        free(tokens);
 		    }
-			printf("directory %s and file name %s \n", path, fileName);
 		} else {
 			printf("Only -r and -f will be processed!\n");
 			break;
 		}
     }
+    printf("directory %s and file name %s \n", path, fileName);
     if (filePath == NULL || filePath[0] == '\0') {
     	printf("Please provide -f filePath\n");
     	abort();
     }
     if (dest == NULL || dest[0] == '\0') {
     	printf("Please provide -r destination\n");
+    	abort();
+    }
+    if (fileName == NULL || fileName[0] == '\0') {
+    	printf("Please provide filename of your file\n");
+    	abort();
+    }
+    if (path == NULL || path[0] == '\0') {
+    	printf("Please provide subdirectory of your file\n");
     	abort();
     }
 }
