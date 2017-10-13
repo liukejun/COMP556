@@ -68,9 +68,17 @@ int main(int argc, char *argv[]) {
 	char *temp;
 	while ((opt = getopt(argc,argv,string)) != -1) {
 		if (opt == 'r') {
+			if (optarg == NULL || optarg[0] == '\0') {
+				printf("Please provide -r destination\n");
+    			abort();
+			}
 			dest = optarg;
 		} else if (opt == 'f') {
 			// filePath = optarg;
+			if (optarg == NULL || optarg[0] == '\0') {
+				printf("Please provide -f filePath\n");
+    			abort();
+			}
 			int pathLength = (int)strlen(optarg);
 			filePath = (char *)malloc(pathLength);
 			strcpy(filePath, optarg);
