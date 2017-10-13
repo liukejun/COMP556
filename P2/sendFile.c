@@ -59,25 +59,25 @@ char** str_split(char* a_str, const char a_delim)
 
 int main(int argc, char *argv[]) {
 	int opt;
-	char *string = "r:f:";
-	char *filePath;
-	char *tempPath;
+	char *string = "r:f:"; // Available options
+	char *filePath; // The file path
+//	char *tempPath;
 	char *path;
 	char *fileName;
-	char *dest;
-	char *temp;
+	char *dest; // The receiver address, in format of <recv host>:<recv port>
+//	char *temp;
 	while ((opt = getopt(argc,argv,string)) != -1) {
 		if (opt == 'r') {
 			if (optarg == NULL || optarg[0] == '\0') {
 				printf("Please provide -r destination\n");
-    			abort();
+        abort();
 			}
 			dest = optarg;
 		} else if (opt == 'f') {
 			// filePath = optarg;
 			if (optarg == NULL || optarg[0] == '\0') {
 				printf("Please provide -f filePath\n");
-    			abort();
+        abort();
 			}
 			int pathLength = (int)strlen(optarg);
 			filePath = (char *)malloc(pathLength);
@@ -86,48 +86,45 @@ int main(int argc, char *argv[]) {
 			tokens = str_split(filePath, '/');
 			if (tokens)
 		    {	
-		        int i;
-		        for (i = 0; *(tokens + i); i++)
-		        {
-		        }
-		        int j;
-		        for (j = 0; *(tokens + j); j++)
-		        {	
-		        	printf("%d\n", i);
-		            if (i != 1 && j == i - 1) {
-		            	int strLen = strlen(*(tokens + j));
-		            	fileName = (char*)malloc(strLen);
-		            	strcpy(fileName, *(tokens + j));
-		            	int substring = pathLength - strlen(fileName);
-		            	path = (char*)malloc(substring+1);
-		            	strncpy(path, optarg, substring);
-		            	path[substring] = 0;
-		            } 
-		            free(*(tokens + j));
-		        }
-		        free(tokens);
+          int i, j;
+          for (i = 0; *(tokens + i); i++) {}
+          for (j = 0; *(tokens + j); j++)
+          {
+            printf("%d\n", i);
+            if (i != 1 && j == i - 1) {
+              int strLen = strlen(*(tokens + j));
+              fileName = (char*)malloc(strLen);
+              strcpy(fileName, *(tokens + j));
+              int substring = pathLength - strlen(fileName);
+              path = (char*)malloc(substring+1);
+              strncpy(path, optarg, substring);
+              path[substring] = 0;
+            }
+            free(*(tokens + j));
+          }
+          free(tokens);
 		    }
 		} else {
 			printf("Only -r and -f will be processed!\n");
 			break;
 		}
-    }
-    printf("directory %s and file name %s \n", path, fileName);
-    if (filePath == NULL || filePath[0] == '\0') {
-    	printf("Please provide -f filePath\n");
-    	abort();
-    }
-    if (dest == NULL || dest[0] == '\0') {
-    	printf("Please provide -r destination\n");
-    	abort();
-    }
-    if (fileName == NULL || fileName[0] == '\0') {
-    	printf("Please provide filename of your file\n");
-    	abort();
-    }
-    if (path == NULL || path[0] == '\0') {
-    	printf("Please provide subdirectory of your file\n");
-    	abort();
-    }
+  }
+  printf("directory %s and file name %s \n", path, fileName);
+  if (filePath == NULL || filePath[0] == '\0') {
+    printf("Please provide -f filePath\n");
+    abort();
+  }
+  if (dest == NULL || dest[0] == '\0') {
+    printf("Please provide -r destination\n");
+    abort();
+  }
+  if (fileName == NULL || fileName[0] == '\0') {
+    printf("Please provide filename of your file\n");
+    abort();
+  }
+  if (path == NULL || path[0] == '\0') {
+    printf("Please provide subdirectory of your file\n");
+    abort();
+  }
 }
 
