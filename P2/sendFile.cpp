@@ -79,5 +79,10 @@ int main(int argc, const char * argv[]) {
     sin.sin_addr.s_addr = server_addr;
     sin.sin_port = htons(server_port);
     
+    char *secret_message = "The Cheese is in The Toaster";
+
+    sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
+    close(sock);
+
     return 0;
 }
