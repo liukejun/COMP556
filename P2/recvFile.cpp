@@ -112,12 +112,12 @@ int main (int numArgs, char **args) {
         cout << "Data: " << buf << endl;
         
         // create file in subdirectory
-        int file_created = createFile(buf);
+        // int file_created = createFile(buf);
         
-        if (file_created == -1) {
-            perror("Cannot create file correctly!");
-            exit(1);
-        }
+        // if (file_created == -1) {
+        //     perror("Cannot create file correctly!");
+        //     exit(1);
+        // }
         
         close(sock);
         return 0;

@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <fstream>
 
 using namespace std;
 vector<string> split(const string &s, char delim) {
@@ -85,10 +86,27 @@ int main(int argc, char * const argv[]) {
     
     // send path and file name to receiver
     string pathName = path + " " + fileName;
-    char * secret_message = new char[pathName.length() + 1];
-    strcpy(secret_message,pathName.c_str());
+    /* to send path and file name, uncomment the following three lines*/
+    // char * secret_message = new char[pathName.length() + 1];
+    // strcpy(secret_message,pathName.c_str());
+    // sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
 
-    sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
+    // open file and read from file
+    ifstream myReadFile;
+    myReadFile.open(file_path);
+    string output;
+    if (myReadFile.is_open()) {
+        cout << "file opened\n";
+        while ( getline (myReadFile,output) )
+        {
+          cout << output << '\n';
+        }
+        myReadFile.close();
+    } else {
+        cout << "Cannot open file!!!\n";
+    }
+    
+    sendto(sock, output.c_str(), strlen(output.c_str())+1, 0, (struct sockaddr *)&sin, sizeof sin);
     close(sock);
 
     return 0;
