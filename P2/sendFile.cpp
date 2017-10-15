@@ -22,6 +22,7 @@
 #include <netdb.h>
 #include <errno.h>
 
+
 using namespace std;
 vector<string> split(const string &s, char delim) {
     stringstream ss(s);
@@ -43,8 +44,7 @@ int main(int argc, const char * argv[]) {
     string host_port = argv[2];
     string fflag = argv[3];
     string file_path = argv[4];
-    
-    
+
     /* our client socket */
     int sock;
     
@@ -79,7 +79,9 @@ int main(int argc, const char * argv[]) {
     sin.sin_addr.s_addr = server_addr;
     sin.sin_port = htons(server_port);
     
-    char *secret_message = "The Cheese is in The Toaster";
+    string pathName = path + " " + fileName;
+    char * secret_message = new char[pathName.length() + 1];
+    strcpy(secret_message,pathName.c_str());
 
     sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
     close(sock);
