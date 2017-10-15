@@ -1,27 +1,20 @@
-//
-//  main.cpp
-//  P2
-//
-//  Created by 夏俊如 on 10/13/17.
-//  Copyright © 2017 Junru Xia. All rights reserved.
-//
-
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <vector>
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
-
+#include <getopt.h>
+#include <unistd.h>
 
 using namespace std;
 vector<string> split(const string &s, char delim) {
@@ -34,16 +27,27 @@ vector<string> split(const string &s, char delim) {
     return tokens;
 }
 
-int main(int argc, const char * argv[]) {
+int main(int argc, char * const argv[]) {
     // deal with input
     if (argc != 5) {
         cout << "Please provide comprehensive information\n";
         return 0;
     }
-    string rflag = argv[1];
-    string host_port = argv[2];
-    string fflag = argv[3];
-    string file_path = argv[4];
+
+    string host_port;
+    string file_path;
+    int opt;
+    while ( (opt = getopt(argc, argv, "r:f:")) != -1 ) {  // for each option..
+        if (opt == 'r') {
+            host_port = optarg;
+        } else if (opt == 'f') {
+            file_path = optarg;
+        } else {
+            fprintf(stderr, "Input Error!!! Usage: %s [-r host:port] [-f subdir/filename]\n",
+                    argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
 
     /* our client socket */
     int sock;
@@ -79,6 +83,7 @@ int main(int argc, const char * argv[]) {
     sin.sin_addr.s_addr = server_addr;
     sin.sin_port = htons(server_port);
     
+    // send path and file name to receiver
     string pathName = path + " " + fileName;
     char * secret_message = new char[pathName.length() + 1];
     strcpy(secret_message,pathName.c_str());
