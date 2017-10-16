@@ -17,6 +17,22 @@
 #include <unistd.h>
 #include <fstream>
 #include "MyPacket.hpp"
+#ifdef __APPLE__
+#include <machine/endian.h>
+#include <libkern/OSByteOrder.h>
+
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
+
+#define __BIG_ENDIAN    BIG_ENDIAN
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BYTE_ORDER    BYTE_ORDER
+#else
+#include
+#include
+#endif
 
 using namespace std;
 vector<string> split(const string &s, char delim) {
@@ -28,6 +44,24 @@ vector<string> split(const string &s, char delim) {
     }
     return tokens;
 }
+
+//MyPacket deserialize(char * buf) {
+//    int type = (int) ntohl(*(int*)(buf));
+//    int seq_num = (int) ntohl(*(int*)(buf + 4));
+//    int window_size = (int) ntohl(*(int*)(buf + 8));
+//    int data_length = (int) ntohl(*(int*)(buf + 12));
+//    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buf + 16));
+//    cout << "deserialize checksum = " << checksum << endl;
+//    string data((char*)(buf + 24));
+//    //    string rest((char*)(buf + 16));
+//    //    cout << "rest = " << rest << endl;
+//    //    const char* checksum = rest.substr(0, 16).c_str();
+//    //    string data = rest.substr(16);
+//    //    cout << "checksum = " << checksum << " data = " << data << endl;
+//    //
+//    MyPacket res(type, seq_num, window_size, data_length, checksum, data);
+//    return res;
+//}
 
 int main(int argc, char * const argv[]) {
     // deal with input
@@ -88,16 +122,24 @@ int main(int argc, char * const argv[]) {
     vector<MyPacket> my_packets;
     int windowSize = 3;
     int windowStart = 0;
+    time_t currentTime;
     
     string pathName = path + " " + fileName;
     int length = (int)pathName.length();
-    short checksum = 0;
-    MyPacket dir_file(0, windowStart, windowSize, length, checksum, pathName);
-    cout << "type= " << dir_file.getType() << " seq_num= " << dir_file.getSeqNum() << " window_size= " << dir_file.getWinSize() << " data_length= " << dir_file.getDataLength() << " checksum= " << dir_file.getCheckSum() << " data= " << dir_file.getData() << endl;
-
-    sendto(sock, dir_file.getBuf(), dir_file.getDataLength() + 18, 0, (struct sockaddr *)&sin, sizeof sin);
+    MyPacket dir_file(0, windowStart, windowSize, length, 0, pathName);
+    cout << "##Send type= " << dir_file.getType() << " seq_num= " << dir_file.getSeqNum() << " window_size= " << dir_file.getWinSize() << " data_length= " << dir_file.getDataLength() << " checksum= " << dir_file.getCheckSum() << " data= " << dir_file.getData() << endl;
     
-//    // exit !!!!!!
+    /* push packet into window + send packet */
+    time(&currentTime);
+    dir_file.latestSendTime = currentTime;
+    my_packets.push_back(dir_file);
+    cout << "getbuf " << *(unsigned long*)(dir_file.getBuf() + 16) << endl;
+    sendto(sock, dir_file.getBuf(), dir_file.getDataLength() + 24, 0, (struct sockaddr *)&sin, sizeof sin);
+    
+    
+//    MyPacket tmp = deserialize(dir_file.getBuf());
+//    cout << "##Send type= " << tmp.getType() << " seq_num= " << tmp.getSeqNum() << " window_size= " << tmp.getWinSize() << " data_length= " << tmp.getDataLength() << " checksum= " << tmp.getCheckSum() << " data= " << tmp.getData() << endl;
+    // exit !!!!!!
 //    while (1) {
 //        
 //    }

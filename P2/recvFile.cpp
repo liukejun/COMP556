@@ -16,7 +16,22 @@
 #include <sys/stat.h>
 #include <memory>
 #include "MyPacket.hpp"
+#ifdef __APPLE__
+#include <machine/endian.h>
+#include <libkern/OSByteOrder.h>
 
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
+
+#define __BIG_ENDIAN    BIG_ENDIAN
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BYTE_ORDER    BYTE_ORDER
+#else
+#include
+#include
+#endif
 
 #define BUFLEN 5000  //Max length of buffer
 
@@ -37,12 +52,18 @@ MyPacket deserialize(char * buf) {
     int seq_num = (int) ntohl(*(int*)(buf + 4));
     int window_size = (int) ntohl(*(int*)(buf + 8));
     int data_length = (int) ntohl(*(int*)(buf + 12));
-    short checksum = (short) ntohs(*(short*)(buf + 16));
-    string data((char*)(buf + 18));
+    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buf + 16));
+    cout << "deserialize checksum = " << checksum << endl;
+    string data((char*)(buf + 24));
+    //    string rest((char*)(buf + 16));
+    //    cout << "rest = " << rest << endl;
+    //    const char* checksum = rest.substr(0, 16).c_str();
+    //    string data = rest.substr(16);
+    //    cout << "checksum = " << checksum << " data = " << data << endl;
+    //
     MyPacket res(type, seq_num, window_size, data_length, checksum, data);
     return res;
 }
-
 int createFile (string file) {
     if (file.length() == 0) {
         cout << "Path and file name is empty" << "\n";
@@ -122,10 +143,10 @@ int main (int numArgs, char **args) {
         
         //print details of the client/peer and the data received
         cout << "Received packet from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << endl;
-        cout << "Data: " << buf << endl;
         MyPacket receivedPacket = deserialize(buf);
         
-        cout << "type= " << receivedPacket.getType() << " seq_num= " << receivedPacket.getSeqNum() << " window_size= " << receivedPacket.getWinSize() << " data_length= " << receivedPacket.getDataLength() << " checksum= " << receivedPacket.getCheckSum() << " data= " << receivedPacket.getData() << endl;
+        cout << "###Recv type= " << receivedPacket.getType() << " seq_num= " << receivedPacket.getSeqNum() << " window_size= " << receivedPacket.getWinSize() << " data_length= " << receivedPacket.getDataLength() << " checksum= " << receivedPacket.getCheckSum() << " data= " << receivedPacket.getData() << endl;
+        memset(buf, 0, BUFLEN);
         // create file in subdirectory
         // int file_created = createFile(buf);
         

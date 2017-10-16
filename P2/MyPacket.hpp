@@ -1,4 +1,5 @@
 #include <memory>
+#include <time.h>
 using namespace std;
 //class MyPacket;
 //typedef shared_ptr <MyPacket> MyPacketPtr;
@@ -9,7 +10,7 @@ private:
     int seq_num;
     int window_size;
     int data_length;
-    short checksum;
+    unsigned long checksum;
     string data;
     
 public:
@@ -17,7 +18,11 @@ public:
     
     char *buffer;
     
-    MyPacket(int type, int seq_num, int window_size, int data_length, short checksum, string data);
+    bool acked = false;
+    
+    time_t latestSendTime;
+    
+    MyPacket(int type, int seq_num, int window_size, int data_length, unsigned long checksum, string data);
     
     void clear();
     
@@ -29,11 +34,13 @@ public:
     
     int getDataLength();
     
-    short getCheckSum();
+    unsigned long getCheckSum();
     
     string getData();
     
     char* getBuf();
+    
+    unsigned long computeChecksum();
     
 //    void deserialize(char * buf);
     
