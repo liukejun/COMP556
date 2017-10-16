@@ -1,7 +1,7 @@
 #include <memory>
 using namespace std;
-class MyPacket;
-typedef shared_ptr <MyPacket> MyPacketPtr;
+//class MyPacket;
+//typedef shared_ptr <MyPacket> MyPacketPtr;
 
 class MyPacket {
 private:

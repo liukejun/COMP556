@@ -92,9 +92,10 @@ int main(int argc, char * const argv[]) {
     string pathName = path + " " + fileName;
     int length = (int)pathName.length();
     short checksum = 0;
-    MyPacketPtr dir_file = make_shared<MyPacket>(0, windowStart, windowSize, length, checksum, pathName);
-    sendto(sock, dir_file->getBuf(), strlen(dir_file->getBuf())+1, 0, (struct sockaddr *)&sin, sizeof sin);
+    MyPacket dir_file(0, windowStart, windowSize, length, checksum, pathName);
+    cout << "type= " << dir_file.getType() << " seq_num= " << dir_file.getSeqNum() << " window_size= " << dir_file.getWinSize() << " data_length= " << dir_file.getDataLength() << " checksum= " << dir_file.getCheckSum() << " data= " << dir_file.getData() << endl;
 
+    sendto(sock, dir_file.getBuf(), dir_file.getDataLength() + 18, 0, (struct sockaddr *)&sin, sizeof sin);
     
 //    // exit !!!!!!
 //    while (1) {
@@ -109,21 +110,21 @@ int main(int argc, char * const argv[]) {
     // sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
     
     // open file and read from file
-    ifstream myReadFile;
-    myReadFile.open(file_path);
-    string output;
-    if (myReadFile.is_open()) {
-        cout << "file opened\n";
-        while ( getline (myReadFile,output) )
-        {
-            cout << output << '\n';
-        }
-        myReadFile.close();
-    } else {
-        cout << "Cannot open file!!!\n";
-    }
-    
-    sendto(sock, output.c_str(), strlen(output.c_str())+1, 0, (struct sockaddr *)&sin, sizeof sin);
+//    ifstream myReadFile;
+//    myReadFile.open(file_path);
+//    string output;
+//    if (myReadFile.is_open()) {
+//        cout << "file opened\n";
+//        while ( getline (myReadFile,output) )
+//        {
+//            cout << output << '\n';
+//        }
+//        myReadFile.close();
+//    } else {
+//        cout << "Cannot open file!!!\n";
+//    }
+//    
+//    sendto(sock, output.c_str(), strlen(output.c_str())+1, 0, (struct sockaddr *)&sin, sizeof sin);
     close(sock);
     
     return 0;

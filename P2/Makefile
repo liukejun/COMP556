@@ -22,9 +22,9 @@ recvFile : $(RECV_OBJ)
 $(SEND) : $(SEND_OBJ)
 	$(CC) $(LFLAGS) $(Libs) -o $(SEND) $(SEND_OBJ)
 
-recvFile.o : MyPacket.hpp
-sendFile.o : MyPacket.hpp
-MyPacket.o : MyPacket.hpp
+recvFile.o :MyPacket.hpp
+sendFile.o :MyPacket.hpp
+MyPacket.o :MyPacket.hpp
 
 clean:
 	rm -f *.o

@@ -23,7 +23,8 @@ MyPacket :: MyPacket(int typeIn, int seq_numIn, int window_sizeIn,
     *(int*)(buffer + 8) = (int)htonl(window_size);
     *(int*)(buffer + 12) = (int)htonl(data_length);
     *(short*)(buffer + 16) = (short)htons(checksum);
-    *(char*)(buffer + 18) = *data.c_str();
+//    *(char*)(buffer + 18) = *data.c_str();
+    strncat(buffer + 18, dataIn.c_str(), data_length);
 }
 
 void MyPacket :: clear() {
