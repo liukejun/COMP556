@@ -20,16 +20,6 @@
 
 using namespace std;
 
-vector <string> split(const string &s, char delim) {
-    stringstream ss(s);
-    string item;
-    vector <string> tokens;
-    while (getline(ss, item, delim)) {
-        tokens.push_back(item);
-    }
-    return tokens;
-}
-
 int main(int argc, char *const argv[]) {
     // deal with input
     if (argc != 5) {
@@ -72,11 +62,7 @@ int main(int argc, char *const argv[]) {
     /* receiver port number */
     unsigned short server_port = stoi(host_port_vec[1]);
 
-    /* get path and file name */
-    vector <string> file_path_vec = split(file_path, '/');
-    int file_path_size = (int) file_path_vec.size();
-    string fileName = file_path_vec[file_path_size - 1];
-    string path = file_path.substr(0, file_path.length() - fileName.length());
+
 
     /* create a socket */
     if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -98,7 +84,7 @@ int main(int argc, char *const argv[]) {
 //
 //    sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
 
-    SenderWindow senderWindow(pathName.c_str(), WINDOW_SIZE);
+    SenderWindow senderWindow(file_path.c_str(), WINDOW_SIZE, sock, (struct sockaddr*) si_other,addr_len);
     while (!senderWindow.is_complete) {
         /* set up the file descriptor bit map that select should be watching */
         FD_ZERO(&read_set); /* clear everything */
@@ -138,12 +124,12 @@ int main(int argc, char *const argv[]) {
 //                    cout << "recvfrom failed" << endl;
 //                    exit(-1);
 //                }
-                senderWindow.receivePacket(sock, recvBuf, si_other, addr_len);
+                senderWindow.receivePacket();
             }
 
             // Send out all loaded packet
             if (FD_ISSET(sock, &write_set)) {
-                senderWindow.sendPendingPackets(toSent, sock, (struct sockaddr *) sin, addrlen);
+                senderWindow.sendPendingPackets();
             }
         }
     }

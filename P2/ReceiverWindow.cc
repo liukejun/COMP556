@@ -3,6 +3,18 @@
 //
 #include <ReceiverWindow.h>
 
+
+SenderWindow::SenderWindow(char *file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len) :
+        SuperClass(file_path_name, window_size, sock, sockaddr * si_other, addr_len) {
+
+    //    /* get path and file name */
+//    vector <string> file_path_vec = split(file_path, '/');
+//    int file_path_size = (int) file_path_vec.size();
+//    file_name = file_path_vec[file_path_size - 1];
+//    file_path = file_path.substr(0, file_path.length() - fileName.length());
+}
+
+
 vector <string> ReceiverWindow::split(const string &s, char delim) {
     stringstream ss(s);
     string item;

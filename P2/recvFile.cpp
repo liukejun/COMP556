@@ -68,13 +68,13 @@ int main (int numArgs, char **args) {
         abort();
     }
 
-    ReceiverWindow recvWindow(nullptr, WINDOW_SIZE);
+    ReceiverWindow recvWindow(nullptr, WINDOW_SIZE, sock, (struct sockaddr*) si_other,addr_len);
     //keep listening for data
     while(!recvWindow.is_complete)
     {
 
         //try to receive some data, this is a blocking call
-        recvWindow.receivePacket(sock, buf, (struct sockaddr *) &si_other, &addr_len);
+        recvWindow.receivePacket();
 
 //
 //        //print details of the client/peer and the data received
