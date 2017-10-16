@@ -4,6 +4,7 @@
 
 SenderWindow::SenderWindow(char *file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len) :
         SuperClass(file_path_name, window_size, sock, sockaddr * si_other, addr_len) {
+
     // open the file
     in_file.open(file_path_name);
     if (!in_file) {
@@ -84,31 +85,31 @@ void loadFileName() {
 
 void SenderWindow::recievePacket() {
     //try to receive some data, this is a blocking call
-    int recv_len = recvfrom(sock, recvBuf, PACKET_SIZE, 0, (struct sockaddr *) si_other, addr_len);
+    int recv_len = recvfrom(sock, recvBuf, PACKET_SIZE, 0, (struct sockaddr *) si_other, addr_len); // recieve ack msg
     if (recv_len < 0) {
-        cout << "recvfrom failed" << endl;
+        cout << "sender recvfrom failed" << endl;
         exit(-1);
     }
     if (recv_len == MIN_PACKET_SIZE){//ack packet size is set to the MIN_PACKET_SIZE
         if (checkPacket(recvBuf)){
-           int ackNumber =  ntohl(((int*)&recvBuf) + 3);
+           int ackNumber = ntohl(*(((int*)recvBuf) + 3));
             handleAck(ackNumber);
         } else {
             cout << "Corrupt file. Discard" << endl;
         }
     } else {
-        cout << "Trying to receive size of " << MIN_PACKET_SIZE << " but got " << sent << " instead!" << endl;
+        cout << "Trying to receive size of " << MIN_PACKET_SIZE << " but got " << recv_len << " instead!" << endl;
     }
 }
 
 void SenderWindow::handleAck(int ackNumber) {
-    for (int s_i = min_seq_idx, count = 0; count < window_size && slots[s_i].seq_number < ackNumber; count++, s_i = (s_i + 1) % window_size) {
+    for (int s_i = min_seq_idx, count = 0; count < window_size && slots[s_i].seq_number <= ackNumber; count++, s_i = (s_i + 1) % window_size) {
         Slot cur_slot = slots[s_i];
         cur_slot.slot_status = EMPTY;
         cur_slot.updateSeqNumber();
     }
     min_seq_idx = s_i;
-    cout << "packets less than " << min_seq_idx << " has all be acked" << endl;
+    cout << "packets seq number <= " << slots[min_seq_idx].seq_number << " has all be acked" << endl;
 }
 
 bool SenderWindow::checkPacket(char* recvBuf){

@@ -9,6 +9,7 @@
 class Slot{
 public:
     Slot();
+    Slot(int win_size, int init_seq);
     ~Slot();
     void setHeader();
     unsigned_short cksum(u_short *buf, int count);
@@ -29,5 +30,6 @@ public:
     char* slot_buf;
     int window_size; // number of slots in a window
     int resent_time;
+    int sent_size;
 };
 #endif //COMP_556_NETWORK_SLOT_H

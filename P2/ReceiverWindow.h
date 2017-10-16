@@ -10,6 +10,8 @@
 class ReceiverWindow{
 public:
     int createFile (string file);
+    bool checkPacket(char* recvBuf);
+    char* ack_buf;
 private:
     void sendPendingAck(int socket,  char* buf, int size, struct sockaddr* sin, socklen_t addrlen);
 };
