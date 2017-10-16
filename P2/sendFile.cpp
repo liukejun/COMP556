@@ -16,6 +16,8 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <fstream>
+#include <memory>
+#include "MyPacket.hpp"
 
 using namespace std;
 vector<string> split(const string &s, char delim) {
@@ -34,7 +36,7 @@ int main(int argc, char * const argv[]) {
         cout << "Please provide comprehensive information\n";
         return 0;
     }
-
+    
     string host_port;
     string file_path;
     int opt;
@@ -49,28 +51,28 @@ int main(int argc, char * const argv[]) {
             exit(EXIT_FAILURE);
         }
     }
-
+    
     /* our client socket */
     int sock;
     
     /* address structure for identifying the server */
     struct sockaddr_in sin;
- 
+    
     /* receiver host */
     vector<string> host_port_vec = split(host_port, ':');
     struct hostent *host = gethostbyname(host_port_vec[0].c_str());
     unsigned int server_addr = *(unsigned int *) host->h_addr_list[0];
-
+    
     
     /* receiver port number */
     unsigned short server_port = stoi (host_port_vec[1]);
-
+    
     /* get path and file name */
     vector<string> file_path_vec = split(file_path, '/');
     int file_path_size = (int)file_path_vec.size();
     string fileName = file_path_vec[file_path_size-1];
     string path = file_path.substr(0, file_path.length() - fileName.length());
-  
+    
     /* create a socket */
     if ((sock = socket (PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
     {
@@ -84,13 +86,27 @@ int main(int argc, char * const argv[]) {
     sin.sin_addr.s_addr = server_addr;
     sin.sin_port = htons(server_port);
     
-    // send path and file name to receiver
+    vector<MyPacket> my_packets;
+    int windowSize = 3;
+    int windowStart = 0;
+    
     string pathName = path + " " + fileName;
+    MyPacketPtr dir_file = make_shared<MyPacket>(0, windowStart, windowSize, pathName.length(), 0, pathName.c_str());
+    sendto(sock, dir_file->getBuf(), strlen(dir_file->getBuf())+1, 0, (struct sockaddr *)&sin, sizeof sin);
+
+    
+//    // exit !!!!!!
+//    while (1) {
+//        
+//    }
+    
+    // send path and file name to receiver
+//    string pathName = path + " " + fileName;
     /* to send path and file name, uncomment the following three lines*/
     // char * secret_message = new char[pathName.length() + 1];
     // strcpy(secret_message,pathName.c_str());
     // sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
-
+    
     // open file and read from file
     ifstream myReadFile;
     myReadFile.open(file_path);
@@ -99,7 +115,7 @@ int main(int argc, char * const argv[]) {
         cout << "file opened\n";
         while ( getline (myReadFile,output) )
         {
-          cout << output << '\n';
+            cout << output << '\n';
         }
         myReadFile.close();
     } else {
@@ -108,6 +124,6 @@ int main(int argc, char * const argv[]) {
     
     sendto(sock, output.c_str(), strlen(output.c_str())+1, 0, (struct sockaddr *)&sin, sizeof sin);
     close(sock);
-
+    
     return 0;
 }

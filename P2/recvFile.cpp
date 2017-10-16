@@ -14,6 +14,8 @@
 #include <fstream>
 #include <cstdlib>
 #include <sys/stat.h>
+#include <memory>
+#include "MyPacket.hpp"
 
 
 #define BUFLEN 5000  //Max length of buffer
@@ -28,6 +30,17 @@ vector<string> split(const string &s, char delim) {
         tokens.push_back(item);
     }
     return tokens;
+}
+
+MyPacketPtr deserialize(char * buf) {
+    int type = (int) ntohl(*(int*)(buf));
+    int seq_num = (int) ntohl(*(int*)(buf + 4));
+    int window_size = (int) ntohl(*(int*)(buf + 8));
+    int data_length = (int) ntohl(*(int*)(buf + 12));
+    short checksum = (short) ntohs(*(short*)(buf + 16));
+    char* data = (char*)(buf + 18);
+    MyPacketPtr res = make_shared<MyPacket>(type, seq_num, window_size, data_length, checksum, data);
+    return res;
 }
 
 int createFile (string file) {
@@ -110,7 +123,9 @@ int main (int numArgs, char **args) {
         //print details of the client/peer and the data received
         cout << "Received packet from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << endl;
         cout << "Data: " << buf << endl;
+        MyPacketPtr receivedPacket = deserialize(buf);
         
+        cout << "type= " << receivedPacket->getType() << " seq_num= " << receivedPacket->getSeqNum() << " window_size= " << receivedPacket->getWinSize() << " data_length= " << receivedPacket->getDataLength() << " checksum= " << receivedPacket->getCheckSum() << " data= " << receivedPacket->getData() << endl;
         // create file in subdirectory
         // int file_created = createFile(buf);
         
