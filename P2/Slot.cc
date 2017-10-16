@@ -4,7 +4,7 @@
 #include <Slot.h>
 Slot::Slot(){
 }
-Slot::Slot(int win_size, int init_seq): window_size(win_size), seq_number(init_seq){
+Slot::Slot(int win_size, int init_seq): window_size(win_size), seq_number(init_seq), resent_time(0){
     slot_buf = (char*) alloc(PACKET_SIZE);
 
 }

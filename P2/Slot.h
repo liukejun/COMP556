@@ -28,5 +28,6 @@ public:
     int ack_number;
     char* slot_buf;
     int window_size; // number of slots in a window
+    int resent_time;
 };
 #endif //COMP_556_NETWORK_SLOT_H

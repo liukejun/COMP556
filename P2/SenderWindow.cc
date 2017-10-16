@@ -21,7 +21,7 @@ SenderWindow::SenderWindow(char *file_path_name, int window_size, int sock, stru
 
 void SenderWindow::sendPendingPackets() {
 
-    for (int s_i = min_seq_idx, count = 0; count < window_size && window_status == NORMAL; count++, s_i = (s_i + 1) % window_size) {
+    for (int s_i = min_seq_idx, count = 0; count < window_size && (!is_complete); count++, s_i = (s_i + 1) % window_size) {
         {
             Slot cur_slot = slots[s_i];
             // load file
@@ -30,15 +30,16 @@ void SenderWindow::sendPendingPackets() {
                 streamsize size = in_file.gcount();
                 setLoadedStatus(size, NORMAL, LOADED, file_pos);
                 file_pos = in_file.tellg();
+
+                // check if file reaches the end
+                if (file.eof()) {
+                    file_pos = file_length;
+                    cur_slot.slot_type = LAST;
+                    window_status = LAST;
+                }
+                // set header in packet
+                cur_slot.setHeader();
             }
-            // check if file reaches the end
-            if (file.eof()) {
-                file_pos = file_length;
-                cur_slot.slot_type = LAST;
-                window_status = LAST;
-            }
-            // set header in packet
-            cur_slot.setHeader();
 
             // reset packet that takes too much time
             struct timeval now;
@@ -46,6 +47,13 @@ void SenderWindow::sendPendingPackets() {
             long elapsed = (now.tv_sec - cur_slot.sent_time.tv_sec) * 1000000 + (now.tv_usec - cur_slot.sent_time.tv_usec);
             if (elapsed >= TIMEOUT) {
                 cur_slot.slot_status = LOADED;
+                if (window_status == LAST) {
+                    cur_slot.resent_time++;
+                    if (cur_slot.resent_time > LAST_PACKET_RESENT_TIME) {
+                        is_complete = true;
+                        cur_slot.slot_status = SENT;
+                    }
+                }
             }
 
             // send out packets
