@@ -15,6 +15,8 @@
 #include <errno.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <global.h>
+#include <SenderWindow.h>
 
 using namespace std;
 vector<string> split(const string &s, char delim) {
@@ -86,10 +88,64 @@ int main(int argc, char * const argv[]) {
     // send path and file name to receiver
     string pathName = path + " " + fileName;
     char * secret_message = new char[pathName.length() + 1];
-    strcpy(secret_message,pathName.c_str());
 
-    sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
+//    strcpy(secret_message,pathName.c_str());
+//
+//    sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
+
+    SenderWindow senderWindow(file_path, WINDOW_SIZE);
+    while (!senderWindow.is_complete){
+        /* set up the file descriptor bit map that select should be watching */
+        FD_ZERO (&read_set); /* clear everything */
+        FD_ZERO (&write_set); /* clear everything */
+
+        FD_SET (sock, &read_set); /* put the listening socket in */
+        max = sock; /* initialize max */
+
+        time_out.tv_usec = 100000; /* 1-tenth of a second timeout */
+        time_out.tv_sec = 0;
+
+        // put socket into write_set if we loaded file into one or more slots successfully.
+        int toSent  = senderWindow.loadFile();
+        if (toSent > 0){ // there is something to send
+            FD_SET(sock, &write_set);
+        }
+
+        /* invoke select, make sure to pass max+1 !!! */
+        select_retval = select(max+1, &read_set, &write_set, NULL, &time_out);
+        if (select_retval < 0)
+        {
+            cout << "select failed" << endl;
+            exit(-1);
+        }
+
+        if (select_retval == 0)
+        {
+            /* no descriptor ready, timeout happened */
+            continue;
+        }
+
+        char recvBuf[PACKET_SIZE];
+        if (select_retval > 0) // We get an ack or an packet to send
+        {
+            // Receive an ack packet
+            if (FD_ISSET(sock, &read_set)){
+                //try to receive some data, this is a blocking call
+                recv_len = recvfrom(sock, recvBuf, PACKET_SIZE, 0, (struct sockaddr *) &si_other, &addr_len);
+                if (recv_len ){
+                    cout << "recvfrom failed" << endl;
+                    exit(-1);
+                }
+                senderWindow.recievePacket(recvBuf, recv_len);
+            }
+
+            // Send out all loaded packet
+            if (FD_ISSET(sock, &write_set)){
+                senderWindow.sendPendingPackets(toSent, sock, (struct sockaddr*) sin,  addrlen);
+            }
+        }
+    }
+
     close(sock);
-
     return 0;
 }
