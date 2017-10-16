@@ -36,7 +36,6 @@ MyPacket :: MyPacket(int typeIn, int seq_numIn, int window_sizeIn,
     data = dataIn;
     if (checksumIn == 0) {
         checksum = computeChecksum();
-        cout << "checksum in constuctor " << checksum << endl;
     } else {
         checksum = checksumIn;
     }
@@ -46,7 +45,6 @@ MyPacket :: MyPacket(int typeIn, int seq_numIn, int window_sizeIn,
     *(int*)(buffer + 8) = (int)htonl(window_size);
     *(int*)(buffer + 12) = (int)htonl(data_length);
     *(unsigned long*)(buffer + 16) = (unsigned long)htobe64(checksum);
-    cout << "MyPacket constructor buffer + 16 = " << *(unsigned long*)(buffer + 16) << endl;
 //    strncat(buffer + 16, checksum, 16);
     strncat(buffer + 24, dataIn.c_str(), data_length);
 }

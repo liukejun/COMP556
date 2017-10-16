@@ -53,6 +53,7 @@ MyPacket deserialize(char * buf) {
     int window_size = (int) ntohl(*(int*)(buf + 8));
     int data_length = (int) ntohl(*(int*)(buf + 12));
     unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buf + 16));
+    cout << "deserialize checksum = " << checksum << endl;
     string data((char*)(buf + 24));
     //    string rest((char*)(buf + 16));
     //    cout << "rest = " << rest << endl;
@@ -63,7 +64,6 @@ MyPacket deserialize(char * buf) {
     MyPacket res(type, seq_num, window_size, data_length, checksum, data);
     return res;
 }
-
 int createFile (string file) {
     if (file.length() == 0) {
         cout << "Path and file name is empty" << "\n";
@@ -145,23 +145,7 @@ int main (int numArgs, char **args) {
         cout << "Received packet from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << endl;
         MyPacket receivedPacket = deserialize(buf);
         
-        cout << "###Recv packet type= " << receivedPacket.getType() << " seq_num= " << receivedPacket.getSeqNum() << " window_size= " << receivedPacket.getWinSize() << " data_length= " << receivedPacket.getDataLength() << " checksum= " << receivedPacket.getCheckSum() << " data= " << receivedPacket.getData() << endl;
-        
-        vector<MyPacket> my_packets;
-        int windowSize = 3;
-        int windowStart = 0;
-    
-        unsigned long received_checksum = receivedPacket.computeChecksum();
-        if (received_checksum == receivedPacket.getCheckSum()) {
-            cout << "checksum is the same!" << endl;
-            string data;
-            MyPacket ACK(2, receivedPacket.getSeqNum(), receivedPacket.getWinSize(), 0, 0, data);
-            sendto(sock, ACK.getBuf(), ACK.getDataLength() + 24, 0, (struct sockaddr *)&si_other, sizeof si_other);
-            cout << "##Send type= " << ACK.getType() << " seq_num= " << ACK.getSeqNum() << " window_size= " << ACK.getWinSize() << " data_length= " << ACK.getDataLength() << " checksum= " << ACK.getCheckSum() << " data= " << ACK.getData() << endl;
-        } else {
-            
-        }
-        
+        cout << "###Recv type= " << receivedPacket.getType() << " seq_num= " << receivedPacket.getSeqNum() << " window_size= " << receivedPacket.getWinSize() << " data_length= " << receivedPacket.getDataLength() << " checksum= " << receivedPacket.getCheckSum() << " data= " << receivedPacket.getData() << endl;
         memset(buf, 0, BUFLEN);
         // create file in subdirectory
         // int file_created = createFile(buf);

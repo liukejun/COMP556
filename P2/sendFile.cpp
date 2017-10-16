@@ -34,6 +34,8 @@
 #include
 #endif
 
+#define BUFLEN 5000  //Max length of buffer
+
 using namespace std;
 vector<string> split(const string &s, char delim) {
     stringstream ss(s);
@@ -45,23 +47,22 @@ vector<string> split(const string &s, char delim) {
     return tokens;
 }
 
-//MyPacket deserialize(char * buf) {
-//    int type = (int) ntohl(*(int*)(buf));
-//    int seq_num = (int) ntohl(*(int*)(buf + 4));
-//    int window_size = (int) ntohl(*(int*)(buf + 8));
-//    int data_length = (int) ntohl(*(int*)(buf + 12));
-//    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buf + 16));
-//    cout << "deserialize checksum = " << checksum << endl;
-//    string data((char*)(buf + 24));
-//    //    string rest((char*)(buf + 16));
-//    //    cout << "rest = " << rest << endl;
-//    //    const char* checksum = rest.substr(0, 16).c_str();
-//    //    string data = rest.substr(16);
-//    //    cout << "checksum = " << checksum << " data = " << data << endl;
-//    //
-//    MyPacket res(type, seq_num, window_size, data_length, checksum, data);
-//    return res;
-//}
+MyPacket deserialize(char * buf) {
+    int type = (int) ntohl(*(int*)(buf));
+    int seq_num = (int) ntohl(*(int*)(buf + 4));
+    int window_size = (int) ntohl(*(int*)(buf + 8));
+    int data_length = (int) ntohl(*(int*)(buf + 12));
+    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buf + 16));
+    string data((char*)(buf + 24));
+    //    string rest((char*)(buf + 16));
+    //    cout << "rest = " << rest << endl;
+    //    const char* checksum = rest.substr(0, 16).c_str();
+    //    string data = rest.substr(16);
+    //    cout << "checksum = " << checksum << " data = " << data << endl;
+    //
+    MyPacket res(type, seq_num, window_size, data_length, checksum, data);
+    return res;
+}
 
 int main(int argc, char * const argv[]) {
     // deal with input
@@ -85,11 +86,15 @@ int main(int argc, char * const argv[]) {
         }
     }
     
+    char *buf;
+    buf = (char *)malloc(BUFLEN);
+    
     /* our client socket */
     int sock;
     
     /* address structure for identifying the server */
     struct sockaddr_in sin;
+    struct sockaddr_in sin_other;
     
     /* receiver host */
     vector<string> host_port_vec = split(host_port, ':');
@@ -133,9 +138,22 @@ int main(int argc, char * const argv[]) {
     time(&currentTime);
     dir_file.latestSendTime = currentTime;
     my_packets.push_back(dir_file);
-    cout << "getbuf " << *(unsigned long*)(dir_file.getBuf() + 16) << endl;
     sendto(sock, dir_file.getBuf(), dir_file.getDataLength() + 24, 0, (struct sockaddr *)&sin, sizeof sin);
     
+    int recv_len;
+    socklen_t addr_len = sizeof(struct sockaddr_in);
+    if ((recv_len = recvfrom(sock, buf, BUFLEN, 0, (struct sockaddr *) &sin_other, &addr_len)) == -1)
+    {
+        perror("recvfrom()");
+        exit(1);
+    }
+    
+    cout << "Received ACK from " << inet_ntoa(sin_other.sin_addr) << ":" << ntohs(sin_other.sin_port) << endl;
+    MyPacket receivedPacket = deserialize(buf);
+    
+    cout << "###Recv type= " << receivedPacket.getType() << " seq_num= " << receivedPacket.getSeqNum() << " window_size= " << receivedPacket.getWinSize() << " data_length= " << receivedPacket.getDataLength() << " checksum= " << receivedPacket.getCheckSum() << " data= " << receivedPacket.getData() << endl;
+    
+
     
 //    MyPacket tmp = deserialize(dir_file.getBuf());
 //    cout << "##Send type= " << tmp.getType() << " seq_num= " << tmp.getSeqNum() << " window_size= " << tmp.getWinSize() << " data_length= " << tmp.getDataLength() << " checksum= " << tmp.getCheckSum() << " data= " << tmp.getData() << endl;
