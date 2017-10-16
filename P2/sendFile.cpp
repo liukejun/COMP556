@@ -16,7 +16,6 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <fstream>
-#include <memory>
 #include "MyPacket.hpp"
 
 using namespace std;
@@ -91,7 +90,9 @@ int main(int argc, char * const argv[]) {
     int windowStart = 0;
     
     string pathName = path + " " + fileName;
-    MyPacketPtr dir_file = make_shared<MyPacket>(0, windowStart, windowSize, pathName.length(), 0, pathName.c_str());
+    int length = (int)pathName.length();
+    short checksum = 0;
+    MyPacketPtr dir_file = make_shared<MyPacket>(0, windowStart, windowSize, length, checksum, pathName);
     sendto(sock, dir_file->getBuf(), strlen(dir_file->getBuf())+1, 0, (struct sockaddr *)&sin, sizeof sin);
 
     

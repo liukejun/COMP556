@@ -38,7 +38,7 @@ MyPacketPtr deserialize(char * buf) {
     int window_size = (int) ntohl(*(int*)(buf + 8));
     int data_length = (int) ntohl(*(int*)(buf + 12));
     short checksum = (short) ntohs(*(short*)(buf + 16));
-    char* data = (char*)(buf + 18);
+    string data((char*)(buf + 18));
     MyPacketPtr res = make_shared<MyPacket>(type, seq_num, window_size, data_length, checksum, data);
     return res;
 }

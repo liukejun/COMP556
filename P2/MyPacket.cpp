@@ -7,11 +7,10 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
-#include <memory>
 #include "MyPacket.hpp"
 
 MyPacket :: MyPacket(int typeIn, int seq_numIn, int window_sizeIn, 
-					 int data_lengthIn, short checksumIn, char* dataIn) {
+					 int data_lengthIn, short checksumIn, string dataIn) {
 	type = typeIn;
     seq_num = seq_numIn;
     window_size = window_sizeIn;
@@ -24,14 +23,12 @@ MyPacket :: MyPacket(int typeIn, int seq_numIn, int window_sizeIn,
     *(int*)(buffer + 8) = (int)htonl(window_size);
     *(int*)(buffer + 12) = (int)htonl(data_length);
     *(short*)(buffer + 16) = (short)htons(checksum);
-    *(char*)(buffer + 18) = (char) *data;
+    *(char*)(buffer + 18) = *data.c_str();
 }
 
 void MyPacket :: clear() {
     memset(buffer, 0, data_length + 18);
-    memset(data, 0, data_length);
     free(buffer);
-    free(data);
 }
 
 int MyPacket :: getType() {
@@ -54,7 +51,7 @@ short MyPacket :: getCheckSum() {
     return checksum;
 }
 
-char* MyPacket :: getData() {
+string MyPacket :: getData() {
     return data;
 }
 
@@ -62,15 +59,3 @@ char* MyPacket ::getBuf() {
     return buffer;
 }
 
-void MyPacket :: deserialize(char * buf) {
-    type = (int) ntohl(*(int*)(buf));
-    seq_num = (int) ntohl(*(int*)(buf + 4));
-    window_size = (int) ntohl(*(int*)(buf + 8));
-    data_length = (int) ntohl(*(int*)(buf + 12));
-    checksum = (short) ntohs(*(short*)(buf + 16));
-    data = (char*)(buf + 18);
-}
-
-int main() {
-	return 0;
-}

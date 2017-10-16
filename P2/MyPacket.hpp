@@ -1,3 +1,4 @@
+#include <memory>
 using namespace std;
 class MyPacket;
 typedef shared_ptr <MyPacket> MyPacketPtr;
@@ -9,14 +10,14 @@ private:
     int window_size;
     int data_length;
     short checksum;
-    char * data;
+    string data;
     
 public:
     // 0: directory, 1: fileName, 2: content, 3: ACK
     
     char *buffer;
     
-    MyPacket(int type, int seq_num, int window_size, int data_length, short checksum, char* data);
+    MyPacket(int type, int seq_num, int window_size, int data_length, short checksum, string data);
     
     void clear();
     
@@ -30,12 +31,12 @@ public:
     
     short getCheckSum();
     
-    char* getData();
+    string getData();
     
     char* getBuf();
     
-    void deserialize(char * buf);
+//    void deserialize(char * buf);
     
-    ~MyPacket();
+//    ~MyPacket();
     
 };
