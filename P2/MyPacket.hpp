@@ -14,7 +14,7 @@ private:
     string data;
     
 public:
-    // 0: directory, 1: fileName, 2: content, 3: ACK
+    // 0: directory filename, 1: content, 2: ACK, 3: END
     
     char *buffer;
     
