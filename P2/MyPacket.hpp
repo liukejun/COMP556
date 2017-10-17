@@ -28,7 +28,7 @@ public:
     
     int getType();
     
-    int getSeqNum();
+    int getSeqNum() const;
     
     int getWinSize();
     

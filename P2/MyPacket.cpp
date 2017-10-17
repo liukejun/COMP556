@@ -58,7 +58,7 @@ int MyPacket :: getType() {
     return type;
 }
 
-int MyPacket :: getSeqNum() {
+int MyPacket :: getSeqNum() const {
     return seq_num;
 }
 

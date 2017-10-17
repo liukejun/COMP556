@@ -19,6 +19,7 @@
 #ifdef __APPLE__
 #include <machine/endian.h>
 #include <libkern/OSByteOrder.h>
+#include <set>
 
 #define htobe64(x) OSSwapHostToBigInt64(x)
 #define htole64(x) OSSwapHostToLittleInt64(x)
@@ -74,11 +75,17 @@ int createFile (string file) {
         string name = pathFile[1] + ".recv";
         int status = mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         ofstream file(path+name);
-        string data("data to write to file");
+        string data("To Test !!!! data to write to file");
         file << data;
         return 0;
     }
 }
+
+bool comparator(const MyPacket &lhs,const MyPacket &rhs)
+{
+    return lhs.getSeqNum() - rhs.getSeqNum();
+}
+
 
 int main (int numArgs, char **args) {
     cout << "Welcome to RecvFile System..." << endl;
@@ -128,6 +135,10 @@ int main (int numArgs, char **args) {
         abort();
     }
     
+    set<MyPacket,bool(*)(const MyPacket&, const MyPacket&)> my_packets(&comparator);
+    int windowSize = 3;
+    int windowStart = 0;
+    
     //keep listening for data
     while(1)
     {
@@ -147,21 +158,73 @@ int main (int numArgs, char **args) {
         
         cout << "###Recv packet type= " << receivedPacket.getType() << " seq_num= " << receivedPacket.getSeqNum() << " window_size= " << receivedPacket.getWinSize() << " data_length= " << receivedPacket.getDataLength() << " checksum= " << receivedPacket.getCheckSum() << " data= " << receivedPacket.getData() << endl;
         
-        vector<MyPacket> my_packets;
-        int windowSize = 3;
-        int windowStart = 0;
-    
-        unsigned long received_checksum = receivedPacket.computeChecksum();
-        if (received_checksum == receivedPacket.getCheckSum()) {
-            cout << "checksum is the same!" << endl;
-            string data;
-            MyPacket ACK(2, receivedPacket.getSeqNum(), receivedPacket.getWinSize(), 0, 0, data);
-            sendto(sock, ACK.getBuf(), ACK.getDataLength() + 24, 0, (struct sockaddr *)&si_other, sizeof si_other);
-            cout << "##Send type= " << ACK.getType() << " seq_num= " << ACK.getSeqNum() << " window_size= " << ACK.getWinSize() << " data_length= " << ACK.getDataLength() << " checksum= " << ACK.getCheckSum() << " data= " << ACK.getData() << endl;
+        /* check whether received packet is in window([windowStart,windowStart+windowSize-1])
+         if in window, check whether checksum is the same,
+         if checksum is not the same, ignore?
+         if checksum is the same, push the packet to my_packets, iterate my_packets and decide
+         which seq_num should be sent, send ACK
+         if not in window, ignore?
+         */
+        if (receivedPacket.getType() == 0) {
+            // path and filename, create a new file with.recv extension
+            createFile(receivedPacket.getData());
+            my_packets.insert(receivedPacket);
+            cout << "Current set size is : " << my_packets.size() << endl;
         } else {
-            
-        }
-        
+            cout << "Current set size is : " << my_packets.size() << endl;
+            if (receivedPacket.getSeqNum() < windowStart || receivedPacket.getSeqNum() >= windowStart + windowSize) {
+                // not in window
+                cout << "Packet " << receivedPacket.getSeqNum() << "not in window!" << endl;
+            } else {
+                unsigned long received_checksum = receivedPacket.computeChecksum();
+                if (received_checksum != receivedPacket.getCheckSum()) {
+                    //checksum is not the same,
+                    cout << "Content not similar!!!" << endl;
+                } else {
+                    // in window and content is the same
+                    cout << "In window and checksum is the same!" << endl;
+                    my_packets.insert(receivedPacket);
+                    int nextWindowStart = windowStart;
+                    // iterate my_packets and find correct sequence number that should be sent ACK
+                    for (set<MyPacket>::iterator it=my_packets.begin(); it!=my_packets.end(); ++it) {
+                        MyPacket cur = *it;
+                        cout << "Current Packet in Iterator " << cur.getSeqNum() << endl;
+                        if (cur.getSeqNum() == nextWindowStart) {
+                            nextWindowStart ++;
+                        } else {
+                            break;
+                        }
+                    }
+                    // if the first element in set is not windowStart
+                    if (nextWindowStart == windowStart) {
+                        cout << "First element in set is not windowStart" << endl;
+                    } else {
+                        // send correct sequence number in ACK
+                        cout << "Send ACK now" << nextWindowStart - 1 << endl;
+                        string data;
+                        MyPacket ACK(2, nextWindowStart - 1, receivedPacket.getWinSize(), 0, 0, data);
+                        sendto(sock, ACK.getBuf(), ACK.getDataLength() + 24, 0, (struct sockaddr *)&si_other, sizeof si_other);
+                        cout << "##Send type= " << ACK.getType() << " seq_num= " << nextWindowStart - 1 << " window_size= " << ACK.getWinSize() << " data_length= " << ACK.getDataLength() << " checksum= " << ACK.getCheckSum() << " data= " << ACK.getData() << endl;
+                        
+                        // write to file and erase elements from windowStart - nextWindowStart - 1
+                        ofstream file("oathhhh");
+                        set<MyPacket>::iterator it = my_packets.begin();
+                        for (it = my_packets.begin(); it != my_packets.end(); ) {
+                            if (windowStart < nextWindowStart) {
+                                MyPacket cur = *it;
+                                cout << "Current Packet to write to file " << cur.getData() << endl;
+                                file << cur.getData();
+                                my_packets.erase(it++);
+                                cur.clear();
+                                windowStart ++;
+                            } else {
+                                ++it;
+                            }
+                        }
+                    }
+                }
+            }
+        } 
         memset(buf, 0, BUFLEN);
         // create file in subdirectory
         // int file_created = createFile(buf);
@@ -171,7 +234,7 @@ int main (int numArgs, char **args) {
         //     exit(1);
         // }
         
-//        close(sock);
-//        return 0;
+        //        close(sock);
+        //        return 0;
     }
 }
