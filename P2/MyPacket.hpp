@@ -20,7 +20,7 @@ public:
     
     bool acked = false;
     
-    time_t latestSendTime;
+    struct timeval latestSendTime;
     
     MyPacket(int type, int seq_num, int window_size, int data_length, unsigned long checksum, string data);
     
@@ -41,6 +41,8 @@ public:
     char* getBuf();
     
     unsigned long computeChecksum();
+    
+    void displayContent();
     
 //    void deserialize(char * buf);
     

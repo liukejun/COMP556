@@ -88,6 +88,10 @@ unsigned long MyPacket::computeChecksum() {
     long res = hash_fn(input);
     return res;
 }
+
+void MyPacket::displayContent() {
+    cout << "Packet Content type= " << type << " seq_num= " << seq_num << " window_size= " << window_size << " data_length= " << data_length << " checksum= " << checksum << " data= " << data << endl;
+}
 //unsigned short MyPacket:: computeChecksum() {
 //    int count = data_length;
 //    const char * input = data.c_str();
