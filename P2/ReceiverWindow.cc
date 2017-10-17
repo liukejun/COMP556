@@ -1,7 +1,7 @@
 //
 // Created by SHUO ZHAO on 10/15/17.
 //
-#include <ReceiverWindow.h>
+#include "ReceiverWindow.h"
 
 
 ReceiverWindow::ReceiverWindow(char *file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len) :

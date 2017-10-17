@@ -6,8 +6,7 @@
 #define COMP_556_NETWORK_WINDOW_H
 
 #include <vector>
-#include <global.h>
-#include <Slot.h>
+#include "Slot.h"
 #include <fstream>
 #include <sys/socket.h>
 

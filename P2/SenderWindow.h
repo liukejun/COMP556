@@ -5,8 +5,7 @@
 #ifndef COMP_556_NETWORK_SENDERWINDOW_H
 #define COMP_556_NETWORK_SENDERWINDOW_H
 #include <iostream>
-#include <Window.h>
-#include <global.h>
+#include "Window.h"
 
 
 

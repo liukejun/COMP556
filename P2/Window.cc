@@ -2,7 +2,7 @@
 // Created by SHUO ZHAO on 10/15/17.
 //
 #include <iostream>
-#include <Window.h>
+#include "Window.h"
 
 Window::Window(char* file, int w_size, int sock_in, struct sockaddr *si_other_in, socklen_t addr_len_in):file_path_name(file), window_size(w_size), sock
         (sock_in), si_other(si_other_in), addr_len(addr_len_in), min_seq_idx(0), is_complete(false){

@@ -5,8 +5,9 @@
 #ifndef COMP_556_NETWORK_RECEIVERWINDOW_H
 #define COMP_556_NETWORK_RECEIVERWINDOW_H
 
-#include <Window.h>
+#include "Window.h"
 #include <sys/socket.h>
+
 using namespace std;
 
 class ReceiverWindow{

@@ -5,7 +5,7 @@
 #ifndef COMP_556_NETWORK_SLOT_H
 #define COMP_556_NETWORK_SLOT_H
 
-#include <global.h>
+#include "global.h"
 class Slot{
 public:
     Slot();

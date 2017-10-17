@@ -1,7 +1,7 @@
 //
 // Created by SHUO ZHAO on 10/15/17.
 //
-
+#include "SenderWindow.h"
 SenderWindow::SenderWindow(char *file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len) :
         SuperClass(file_path_name, window_size, sock, sockaddr * si_other, addr_len) {
 

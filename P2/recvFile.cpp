@@ -14,11 +14,8 @@
 #include <fstream>
 #include <cstdlib>
 #include <sys/stat.h>
-#include <global.h>
-#include <ReceiverWindow.h>
+#include "ReceiverWindow.h"
 using namespace std;
-
-
 
 int main (int numArgs, char **args) {
     cout << "Welcome to RecvFile System..." << endl;

@@ -15,8 +15,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <unistd.h>
-#include <global.h>
-#include <SenderWindow.h>
+#include "SenderWindow.h"
 
 using namespace std;
 
