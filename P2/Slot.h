@@ -25,7 +25,6 @@ public:
     int seq_number;
     int ack_number;
     short data_length;
-    int file_position;
     int ack_number;
     char* slot_buf;
     int window_size; // number of slots in a window

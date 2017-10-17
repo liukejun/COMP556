@@ -7,10 +7,13 @@
 
 #include <Window.h>
 #include <sys/socket.h>
+using namespace std;
+
 class ReceiverWindow{
 public:
     int createFile (string file);
     bool checkPacket(char* recvBuf);
+    fstream out_file;
     char* ack_buf;
 private:
     void sendPendingAck(int socket,  char* buf, int size, struct sockaddr* sin, socklen_t addrlen);

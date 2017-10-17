@@ -20,25 +20,23 @@ public:
     virtual void receivePacket();
     vector <string> split(const string &s, char delim);
 
-
-    int window_size;
     // for sending and receiving
     int sock;
     struct sockaddr *si_other;
     socklen_t addr_len;
 
-    char *file_path_name;
+    int window_size;
     bool is_complete;
     vector <Slot> slots;
     char recvBuf[PACKET_SIZE];
     int min_seq_idx; // current unacked slot with the lowest sequence number
-    bool is_complete;
-    string file_path;
-    string file_name;
     WindowStatus window_status; //enum WindowStatus{NORMAL, LAST};
 
-    int file_pos;
+    // file info
+    char *file_path_name;
     int file_length;
+    string file_path;
+    string file_name;
 };
 
 #endif //COMP_556_NETWORK_WINDOW_H

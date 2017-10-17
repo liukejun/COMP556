@@ -19,7 +19,9 @@ SenderWindow::SenderWindow(char *file_path_name, int window_size, int sock, stru
 
     loadFileName();
 }
-
+SenderWindow::~SenderWindow(){
+    in_file.close();
+}
 void SenderWindow::sendPendingPackets() {
 
     for (int s_i = min_seq_idx, count = 0; count < window_size && (!is_complete); count++, s_i = (s_i + 1) % window_size) {
@@ -29,12 +31,10 @@ void SenderWindow::sendPendingPackets() {
             if (cur_slot.slot_status == EMPTY) {
                 in_file.read(cur_slot.slot_buf + HEADER_SIZE, PACKET_SIZE - HEADER_SIZE);
                 streamsize size = in_file.gcount();
-                setLoadedStatus(size, NORMAL, LOADED, file_pos);
-                file_pos = in_file.tellg();
+                setLoadedStatus(size, NORMAL, LOADED);
 
                 // check if file reaches the end
                 if (file.eof()) {
-                    file_pos = file_length;
                     cur_slot.slot_type = LAST;
                     window_status = LAST;
                 }
@@ -74,7 +74,6 @@ void SenderWindow::sendPendingPackets() {
 void loadFileName() {
     // load it to the first slot
     Slot first_slot = slots[0];
-    first_slot.file_position = -1;
     first_slot.slot_type = FIRST;
 
     // Save the file path in the packet data portion.
@@ -92,7 +91,7 @@ void SenderWindow::recievePacket() {
     }
     if (recv_len == MIN_PACKET_SIZE){//ack packet size is set to the MIN_PACKET_SIZE
         if (checkPacket(recvBuf)){
-           int ackNumber = ntohl(*(((int*)recvBuf) + 3));
+           int ackNumber = ntohl(*(((int*)recvBuf) + 2));
             handleAck(ackNumber);
         } else {
             cout << "Corrupt file. Discard" << endl;
@@ -114,14 +113,10 @@ void SenderWindow::handleAck(int ackNumber) {
 
 bool SenderWindow::checkPacket(char* recvBuf){
     // get all info
-    unsigned_short header_cksum_in = *((short*)((int *)slot_buf + 4));
-//    unsigned_short data_cksum_in = *(((short *)slot_buf + 9));
+    unsigned_short header_cksum_in = *((short*)((int *)slot_buf + 3));
 
     // check header
     unsigned_short header_cksum = cksum(((u_short* )recvBuf), (HEADER_SIZE - CKSUM_SIZE) / 2);
-
-    // check data
-//    unsigned_short data_cksum = cksum((u_short* )((int *)slot_buf + 5), (PACKET_SIZE - HEADER_SIZE) / 2);
 
     return (header_cksum_in == header_cksum);
 }
