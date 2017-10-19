@@ -36,6 +36,7 @@ MyPacket :: MyPacket(int typeIn, int seq_numIn, int window_sizeIn,
     data = dataIn;
     if (checksumIn == 0) {
         checksum = computeChecksum();
+        cout << "checksum in constuctor " << checksum << endl;
     } else {
         checksum = checksumIn;
     }
@@ -45,22 +46,21 @@ MyPacket :: MyPacket(int typeIn, int seq_numIn, int window_sizeIn,
     *(int*)(buffer + 8) = (int)htonl(window_size);
     *(int*)(buffer + 12) = (int)htonl(data_length);
     *(unsigned long*)(buffer + 16) = (unsigned long)htobe64(checksum);
+    cout << "MyPacket constructor buffer + 16 = " << *(unsigned long*)(buffer + 16) << endl;
 //    strncat(buffer + 16, checksum, 16);
     strncat(buffer + 24, dataIn.c_str(), data_length);
 }
 
 void MyPacket :: clear() {
-    cout << "clear buffer in mypacket start " << endl;
-    memset(buffer, 0, data_length + 24);
+    memset(buffer, 0, data_length + 18);
     free(buffer);
-    cout << "clear buffer ok" << endl;
 }
 
 int MyPacket :: getType() {
     return type;
 }
 
-int MyPacket :: getSeqNum() const {
+int MyPacket :: getSeqNum() const{
     return seq_num;
 }
 
@@ -85,16 +85,10 @@ char* MyPacket ::getBuf() {
 }
 
 unsigned long MyPacket::computeChecksum() {
-    cout << "Start checksum" << endl;
     string input = data;
     std::hash<std::string> hash_fn;
     long res = hash_fn(input);
-    cout << "checksum is ok " << endl;
     return res;
-}
-
-void MyPacket::displayContent() {
-    cout << "Packet Content type= " << type << " seq_num= " << seq_num << " window_size= " << window_size << " data_length= " << data_length << " checksum= " << checksum << " data= " << data << endl;
 }
 //unsigned short MyPacket:: computeChecksum() {
 //    int count = data_length;

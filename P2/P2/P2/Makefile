@@ -1,7 +1,7 @@
 
 CC = g++
 CFLAGS = -Wall -c -g
-LFLAGS = 
+LFLAGS =
 Libs = -lz
 
 RECV = recvFile
