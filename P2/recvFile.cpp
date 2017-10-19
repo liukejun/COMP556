@@ -166,36 +166,17 @@ int main (int numArgs, char **args) {
          if not in window, ignore?
          */
         if (receivedPacket.getType() == 0) {
-             if (receivedPacket.getSeqNum() < windowStart || receivedPacket.getSeqNum() >= windowStart + windowSize) {
-                cout << "Packet " << receivedPacket.getSeqNum() << "not in window!" << endl;
-             } else {
-                // path and filename, create a new file with.recv extension
-                cout << "Create file " << receivedPacket.getData() << endl;
-                // createFile(receivedPacket.getData());
-                my_packets.insert(receivedPacket);
-                cout << "Current set size is : " << my_packets.size() << endl;
-                cout << "Send ACK now" << receivedPacket.getSeqNum() << endl;
-                string data;
-                MyPacket ACK(2, receivedPacket.getSeqNum(), receivedPacket.getWinSize(), 0, 0, data);
-                sendto(sock, ACK.getBuf(), ACK.getDataLength() + 24, 0, (struct sockaddr *)&si_other, sizeof si_other);
-                my_packets.erase(my_packets.begin());
-                windowStart ++;
-             }
+            // path and filename, create a new file with.recv extension
+            createFile(receivedPacket.getData());
+            my_packets.insert(receivedPacket);
+            cout << "Current set size is : " << my_packets.size() << endl;
         } else {
             cout << "Current set size is : " << my_packets.size() << endl;
-            cout << "==================Packets in set ===================" << endl;
-            for (set<MyPacket>::iterator it=my_packets.begin(); it!=my_packets.end(); ++it) {
-                MyPacket cur = *it;
-                cout << "##In set packet: type= " << cur.getType() << " seq_num= " << cur.getSeqNum() << " window_size= " << cur.getWinSize() << " data_length= " << cur.getDataLength() << " checksum= " << cur.getCheckSum() << " data= " << cur.getData() << endl;
-            }
-            cout << "==================end print set======================" << endl;
-            cout << "Window start " << windowStart << endl;
             if (receivedPacket.getSeqNum() < windowStart || receivedPacket.getSeqNum() >= windowStart + windowSize) {
                 // not in window
                 cout << "Packet " << receivedPacket.getSeqNum() << "not in window!" << endl;
             } else {
                 unsigned long received_checksum = receivedPacket.computeChecksum();
-                cout << "Received checksum is " << receivedPacket.getCheckSum() << " New calculated checksum is " << received_checksum << endl;
                 if (received_checksum != receivedPacket.getCheckSum()) {
                     //checksum is not the same,
                     cout << "Content not similar!!!" << endl;
@@ -219,7 +200,7 @@ int main (int numArgs, char **args) {
                         cout << "First element in set is not windowStart" << endl;
                     } else {
                         // send correct sequence number in ACK
-                        cout << "Send ACK now " << nextWindowStart - 1 << endl;
+                        cout << "Send ACK now" << nextWindowStart - 1 << endl;
                         string data;
                         MyPacket ACK(2, nextWindowStart - 1, receivedPacket.getWinSize(), 0, 0, data);
                         sendto(sock, ACK.getBuf(), ACK.getDataLength() + 24, 0, (struct sockaddr *)&si_other, sizeof si_other);
@@ -232,11 +213,9 @@ int main (int numArgs, char **args) {
                             if (windowStart < nextWindowStart) {
                                 MyPacket cur = *it;
                                 cout << "Current Packet to write to file " << cur.getData() << endl;
-                                // file << cur.getData();
-                                cout << "Start to erase " << endl;
+                                file << cur.getData();
                                 my_packets.erase(it++);
-                                cout << "End erase ok" << endl;
-                                // cur.clear();
+                                cur.clear();
                                 windowStart ++;
                             } else {
                                 ++it;
