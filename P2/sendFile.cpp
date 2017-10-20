@@ -97,8 +97,10 @@ int getDataLength(char* buffer) {
 
 char* getChecksum(char* buff) {
 //    printf("%s", MD5LEN, buff + 24);
-    char* res = (char*)malloc(MD5LEN);
+    char* res = (char*)malloc(MD5LEN + 1);
+    res[0] = '\0';
     strncpy(res, buff + 24, MD5LEN);
+    res[32] = '\0';
     return res;
 }
 
@@ -210,7 +212,7 @@ char *str2md5(const char *str, int length) {
 char* setPacket(int type, int seq_num, int window_size, 
                int data_length, string data) {
     char * buffer;
-    buffer = (char *) malloc(PACKETLEN);
+    buffer = (char *) malloc(PACKETLEN + 1);
     memset(buffer, 0, PACKETLEN);
     char *checksum = (char*)malloc(MD5LEN + 1);
     memset(checksum, 0, MD5LEN + 1);
@@ -237,6 +239,7 @@ char* setPacket(int type, int seq_num, int window_size,
     printf("%s\n", buffer + 24, MD5LEN);
     buffer[56] = '\0';
     strncat(buffer + 56, data.c_str(), data_length);
+    buffer[PACKETLEN] = '\0';
     cout << "all set" << endl;
     cout << "###Set packet type= " << getType(buffer) << endl;
     cout << " seq_num= " << getSeqNum(buffer) << endl;
