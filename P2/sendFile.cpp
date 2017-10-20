@@ -1,4 +1,4 @@
-//kl 8:30pm 
+//kl 8:54pm 
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -126,7 +126,7 @@ string getData(char* buffer) {
 }
 
 void clearPacket(char* buffer) {
-    memset (&buffer, 0, PACKETLEN);
+    memset (buffer, 0, PACKETLEN);
     free(buffer);
 }
 
@@ -139,11 +139,14 @@ void setTimestamp(char* buffer) {
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
 }
 
+void displayContent(char* pkt) {
+    cout << "###packet type= " << getType(pkt) << " seq_num= " << getSeqNum(pkt) << " window_size= " << getWindowSize(pkt) << " data_length= " << getDataLength(pkt) << " checksum= " << getChecksum(pkt) << " data= " << getData(pkt) << endl;
+}
 
 bool isTimeout(int windowStart, vector<char*> my_packets) {
-    cout << "\n\nTimeout" << endl;
+    cout << "\n\nisTimeout fn" << endl;
     char* firstPacketInWin = my_packets.at(0);
-    cout << "###packet type= " << getType(firstPacketInWin) << " seq_num= " << getSeqNum(firstPacketInWin) << " window_size= " << getWindowSize(firstPacketInWin) << " data_length= " << getDataLength(firstPacketInWin) << " checksum= " << getChecksum(firstPacketInWin) << " data= " << getData(firstPacketInWin) << endl;
+    displayContent(firstPacketInWin);
     struct timeval currentTime, sendTime, resultTime;
     gettimeofday(&currentTime, NULL);
     sendTime = getTimeStamp(firstPacketInWin);
@@ -189,14 +192,12 @@ char* receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) 
         cout << "Complete file has been sent successfully!" << endl;
         exit(0);
     }
-    cout << "###packet type= " << getType(intoMe) << " seq_num= " << getSeqNum(intoMe) << " window_size= " << getWindowSize(intoMe) << " data_length= " << getDataLength(intoMe) << " checksum= " << getChecksum(intoMe) << " data= " << getData(intoMe) << endl;
+    displayContent(intoMe);
     return intoMe;
 }
 
 
 int main(int argc, char * const argv[]) {
-    argc = 5;
-    
     // deal with input
     if (argc != 5) {
         cout << "Please provide comprehensive information\n";
@@ -205,20 +206,18 @@ int main(int argc, char * const argv[]) {
     
     string host_port;
     string file_path;
-    host_port = "localhost:18200";
-    file_path = "app/file";
-//    int opt;
-//    while ( (opt = getopt(argc, argv, "r:f:")) != -1 ) {  // for each option..
-//        if (opt == 'r') {
-//            host_port = optarg;
-//        } else if (opt == 'f') {
-//            file_path = optarg;
-//        } else {
-//            fprintf(stderr, "Input Error!!! Usage: %s [-r host:port] [-f subdir/filename]\n",
-//                    argv[0]);
-//            exit(EXIT_FAILURE);
-//        }
-//    }
+    int opt;
+    while ( (opt = getopt(argc, argv, "r:f:")) != -1 ) {  // for each option..
+        if (opt == 'r') {
+            host_port = optarg;
+        } else if (opt == 'f') {
+            file_path = optarg;
+        } else {
+            fprintf(stderr, "Input Error!!! Usage: %s [-r host:port] [-f subdir/filename]\n",
+                    argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
     
     char *buf;
     buf = (char *)malloc(BUFLEN);
@@ -298,17 +297,17 @@ int main(int argc, char * const argv[]) {
             // delete
             cout << "\n\nDelete pkg" << endl;
             cout << "\n\nData in vector ===============before delete" << endl;
-            // for (int i = 0; i < my_packets.size(); i++) {
-            //     my_packets.at(i).displayContent();
-            // }
-//            for (int i = 0; i < receivedPacket.getSeqNum() - windowStart + 1; i++) {
-//                my_packets.at(i).clear();
-//            }
+             for (int i = 0; i < my_packets.size(); i++) {
+                 displayContent(my_packets.at(i));
+             }
+            for (int i = 0; i < getSeqNum(receivedPacket) - windowStart + 1; i++) {
+                clearPacket(my_packets.at(i));
+            }
             my_packets.erase (my_packets.begin(), my_packets.begin() + getSeqNum(receivedPacket) - windowStart + 1);
             cout << "\n\nData in vector ===============after delete" << endl;
-            // for (int i = 0; i < my_packets.size(); i++) {
-            //     my_packets.at(i).displayContent();
-            // }
+             for (int i = 0; i < my_packets.size(); i++) {
+                 displayContent(my_packets.at(i));
+             }
             int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
             windowStart = getSeqNum(receivedPacket) + 1;
             cout << "Window start move to " << windowStart << endl;
@@ -329,7 +328,7 @@ int main(int argc, char * const argv[]) {
                     my_packets.push_back(setPacket(3, actualReadMin + actualReadLen, windowSize, 1000, data)); // last packet
                     lastPktSeq = windowStart + actualReadLen;
                 } else {
-                    my_packets.push_back(setPacket(0, actualReadMin + actualReadLen, windowSize, 1000, data));
+                    my_packets.push_back(setPacket(1, actualReadMin + actualReadLen, windowSize, 1000, data));
                 }
                 /* push packet into window + send packet */
                 setTimestamp(my_packets.back());
