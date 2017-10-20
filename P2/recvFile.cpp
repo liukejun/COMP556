@@ -17,27 +17,31 @@
 #include <cstdlib>
 #include <sys/stat.h>
 #include <memory>
-#include "MyPacket.hpp"
-#ifdef __APPLE__
-#include <machine/endian.h>
-#include <libkern/OSByteOrder.h>
+#include<openssl/hmac.h>
+#include<openssl/md5.h>
 #include <set>
 
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#define htole64(x) OSSwapHostToLittleInt64(x)
-#define be64toh(x) OSSwapBigToHostInt64(x)
-#define le64toh(x) OSSwapLittleToHostInt64(x)
-
-#define __BIG_ENDIAN BIG_ENDIAN
-#define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __BYTE_ORDER BYTE_ORDER
-#else
-#include
-#include
-#endif
+//#ifdef __APPLE__
+//#include <machine/endian.h>
+//#include <libkern/OSByteOrder.h>
+//#include <set>
+//
+//#define htobe64(x) OSSwapHostToBigInt64(x)
+//#define htole64(x) OSSwapHostToLittleInt64(x)
+//#define be64toh(x) OSSwapBigToHostInt64(x)
+//#define le64toh(x) OSSwapLittleToHostInt64(x)
+//
+//#define __BIG_ENDIAN BIG_ENDIAN
+//#define __LITTLE_ENDIAN LITTLE_ENDIAN
+//#define __BYTE_ORDER BYTE_ORDER
+//#else
+//#include
+//#include
+//#endif
 
 #define BUFLEN 5000  //Max length of buffer
 #define PACKETLEN 1032  //Max length of buffer
+#define MD5LEN 16
 
 using namespace std;
 
@@ -52,18 +56,43 @@ vector<string> split(const string &s, char delim) {
 }
 
 
-unsigned long computeChecksum(string data) {
-    string input = data;
-    std::hash<std::string> hash_fn;
-    long res = hash_fn(input);
-    return res;
+//unsigned long computeChecksum(string data) {
+//    string input = data;
+//    std::hash<std::string> hash_fn;
+//    long res = hash_fn(input);
+//    return res;
+//}
+
+int
+output(char *p, unsigned char* pwd, int len)
+{
+    int i;
+    printf("%s",p);
+    for(i=0;i<len;i++)
+    {
+        printf("%x",pwd[i]);
+    }
+    printf("\n");
+    return 0;
+}
+
+void uncharToChar(unsigned char ar1[], char ar2[], int hm)
+{
+    for(int i=0; i<hm; i++)
+    {
+        ar2[i]=static_cast<char>(ar1[i]);
+    }
 }
 
 char* setPacket(int type, int seq_num, int window_size, 
                int data_length, string data) {
     char *buffer;
     buffer = (char *) malloc(PACKETLEN);
-    unsigned long checksum = computeChecksum(data);
+    unsigned char checksum[MD5LEN];
+    unsigned char *data_unsigned = new unsigned char[data_length + 1];
+    strcpy((char*) data_unsigned, data.c_str());
+    MD5(data_unsigned, data_length, checksum);
+    output("Encrypt Password = ",(unsigned char *)checksum, MD5LEN);
     *(int*)buffer = (int)htonl(type);
     *(int*)(buffer + 4) = (int)htonl(seq_num);
     *(int*)(buffer + 8) = (int)htonl(window_size);
@@ -74,7 +103,9 @@ char* setPacket(int type, int seq_num, int window_size,
     }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
-    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
+    buffer[24] = '\0';
+    strncat(buffer + 24, reinterpret_cast<char*>(checksum), MD5LEN);
+//    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
     strncat(buffer + 32, data.c_str(), data_length);
     return buffer;
 }
@@ -100,9 +131,15 @@ int getDataLength(char* buffer) {
     return data_length;
 }
 
-unsigned long getChecksum(char* buffer) {
-    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buffer + 24));
-    return checksum;
+//unsigned long getChecksum(char* buffer) {
+//    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buffer + 24));
+//    return checksum;
+//}
+
+char* getChecksum(char* buff) {
+    char* res;
+    strncpy(res, buff + 24, MD5LEN);
+    return res;
 }
 
 struct timeval getTimeStamp(char* buffer) {
@@ -143,7 +180,7 @@ string createFile (string file) {
         string path = pathFile[0];
         string name = pathFile[1] + ".recv";
         int status = mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        ofstream file(path+name);
+        ofstream file((path+name).c_str());
         // string data("To Test !!!! data to write to file");
         // file << data;
         return path+name;
@@ -204,7 +241,7 @@ int main (int numArgs, char **args) {
         abort();
     }
     
-    set<char*,bool(*)(const char *s1, const char *s2)> my_packets(&comparator);
+    set<char*, bool(*)(const char *s1, const char *s2)> my_packets(&comparator);
     int windowSize = 3;
     int windowStart = 0;
     
@@ -269,9 +306,14 @@ int main (int numArgs, char **args) {
                 memset(receivedPacket,0,PACKETLEN);
                 free(receivedPacket);
             } else {
-                unsigned long received_checksum = computeChecksum(getData(receivedPacket));
-                cout << "Received checksum is " << getChecksum(receivedPacket) << " New calculated checksum is " << received_checksum << endl;
-                if (received_checksum != getChecksum(receivedPacket)) {
+//                unsigned long received_checksum = computeChecksum(getData(receivedPacket));
+                unsigned char received_checksum[MD5LEN];
+                unsigned char *data_unsigned = new unsigned char[getDataLength(receivedPacket) + 1];
+                strcpy((char*) data_unsigned, getData(receivedPacket).c_str());
+                MD5(data_unsigned, getDataLength(receivedPacket), received_checksum);
+                cout << "Received checksum is " << getChecksum(receivedPacket);
+                output(" New calculated checksum is ", received_checksum, MD5LEN);
+                if (reinterpret_cast<char*>(received_checksum) != getChecksum(receivedPacket)) {
                     //checksum is not the same,
                     cout << "Content not similar!!!" << endl;
                 } else {
@@ -302,7 +344,7 @@ int main (int numArgs, char **args) {
                         
                         // write to file and erase elements from windowStart - nextWindowStart - 1
                         cout << "Path file " << pathFile << endl;
-                        ofstream file(pathFile,ios_base::app);
+                        ofstream file(pathFile.c_str(),ios_base::app);
                         set<char*>::iterator it = my_packets.begin();
                         for (it = my_packets.begin(); it != my_packets.end(); ) {
                             if (windowStart < nextWindowStart) {

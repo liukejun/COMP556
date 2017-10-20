@@ -17,26 +17,28 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <fstream>
-#include "MyPacket.hpp"
-#ifdef __APPLE__
-#include <machine/endian.h>
-#include <libkern/OSByteOrder.h>
-
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#define htole64(x) OSSwapHostToLittleInt64(x)
-#define be64toh(x) OSSwapBigToHostInt64(x)
-#define le64toh(x) OSSwapLittleToHostInt64(x)
-
-#define __BIG_ENDIAN BIG_ENDIAN
-#define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __BYTE_ORDER BYTE_ORDER
-#else
-#include
-#include
-#endif
+#include<openssl/hmac.h>
+#include<openssl/md5.h>
+//#ifdef __APPLE__
+//#include <machine/endian.h>
+//#include <libkern/OSByteOrder.h>
+//
+//#define htobe64(x) OSSwapHostToBigInt64(x)
+//#define htole64(x) OSSwapHostToLittleInt64(x)
+//#define be64toh(x) OSSwapBigToHostInt64(x)
+//#define le64toh(x) OSSwapLittleToHostInt64(x)
+//
+//#define __BIG_ENDIAN BIG_ENDIAN
+//#define __LITTLE_ENDIAN LITTLE_ENDIAN
+//#define __BYTE_ORDER BYTE_ORDER
+//#else
+//#include
+//#include
+//#endif
 
 #define BUFLEN 5000  //Max length of buffer
 #define PACKETLEN 1032  //Max length of buffer
+#define MD5LEN 16
 
 using namespace std;
 
@@ -60,12 +62,12 @@ void clearVector(vector<char*> v) {
     }
 }
 
-unsigned long computeChecksum(string data) {
-    string input = data;
-    std::hash<std::string> hash_fn;
-    long res = hash_fn(input);
-    return res;
-}
+//unsigned long computeChecksum(string data) {
+//    string input = data;
+//    std::hash<std::string> hash_fn;
+//    long res = hash_fn(input);
+//    return res;
+//}
 
 
 int getType(char* buffer) {
@@ -88,9 +90,15 @@ int getDataLength(char* buffer) {
     return data_length;
 }
 
-unsigned long getChecksum(char* buffer) {
-    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buffer + 24));
-    return checksum;
+//unsigned long getChecksum(char* buffer) {
+//    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buffer + 24));
+//    return checksum;
+//}
+
+char* getChecksum(char* buff) {
+    char* res;
+    strncpy(res, buff + 24, MD5LEN);
+    return res;
 }
 
 struct timeval getTimeStamp(char* buffer) {
@@ -149,11 +157,40 @@ bool isTimeout(int windowStart, vector<char*> my_packets) {
     return false;
 }
 
+int
+output(char *p, unsigned char* pwd, int len)
+{
+    int i;
+    printf("%s",p);
+    for(i=0;i<len;i++)
+    {
+        printf("%x",pwd[i]);
+    }
+    printf("\n");
+    return 0;
+}
+
+char* uncharToChar(unsigned char ar1[], int hm)
+{
+    char res[hm];
+    for(int i=0; i<hm; i++)
+    {
+        res[i]=static_cast<char>(ar1[i]);
+        printf("cast %x to %x\n", ar1[i], res[i]);
+    }
+    cout << "\n";
+    return res;
+}
+
 char* setPacket(int type, int seq_num, int window_size, 
                int data_length, string data) {
     char * buffer;
     buffer = (char *) malloc(PACKETLEN);
-    unsigned long checksum = computeChecksum(data);
+    unsigned char checksum[MD5LEN];
+    unsigned char *data_unsigned = new unsigned char[data_length + 1];
+    strcpy((char*) data_unsigned, data.c_str());
+    MD5(data_unsigned, data_length, checksum);
+    output("Encrypt Password = ", checksum, MD5LEN);
     *(int*)buffer = (int)htonl(type);
     *(int*)(buffer + 4) = (int)htonl(seq_num);
     *(int*)(buffer + 8) = (int)htonl(window_size);
@@ -164,10 +201,18 @@ char* setPacket(int type, int seq_num, int window_size,
     }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
-    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
+//    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
+    buffer[24] = '\0';
+    strncat(buffer + 24, uncharToChar(checksum, MD5LEN), MD5LEN);
+    cout << "after set checksum ";
+    for(int i=24;i<32;i++)
+    {
+        printf("%x",buffer[i]);
+    }
+    cout << "\n";
     buffer[32] = '\0';
     strncat(buffer + 32, data.c_str(), data_length);
-    // cout << "###Set packet type= " << getType(buffer) << " seq_num= " << getSeqNum(buffer) << " window_size= " << getWindowSize(buffer) << " data_length= " << getDataLength(buffer) << " checksum= " << getChecksum(buffer) << " data= " << getData(buffer) << endl;
+    cout << "###Set packet type= " << getType(buffer) << " seq_num= " << getSeqNum(buffer) << " window_size= " << getWindowSize(buffer) << " data_length= " << getDataLength(buffer) << " checksum= " << getChecksum(buffer) << " data= " << getData(buffer) << endl;
     return buffer;
 }
 
@@ -248,7 +293,7 @@ int main(int argc, char * const argv[]) {
     
     
     /* receiver port number */
-    unsigned short server_port = stoi (host_port_vec[1]);
+    unsigned short server_port = atoi (host_port_vec[1].c_str());
     
     /* get path and file name */
     vector<string> file_path_vec = split(file_path, '/');
