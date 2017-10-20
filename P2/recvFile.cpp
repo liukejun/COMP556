@@ -40,8 +40,8 @@
 //#endif
 
 #define BUFLEN 5000  //Max length of buffer
-#define PACKETLEN 1032  //Max length of buffer
-#define MD5LEN 16
+#define PACKETLEN 1056  //Max length of buffer
+#define MD5LEN 32
 
 using namespace std;
 
@@ -76,40 +76,6 @@ output(char *p, unsigned char* pwd, int len)
     return 0;
 }
 
-void uncharToChar(unsigned char ar1[], char ar2[], int hm)
-{
-    for(int i=0; i<hm; i++)
-    {
-        ar2[i]=static_cast<char>(ar1[i]);
-    }
-}
-
-char* setPacket(int type, int seq_num, int window_size, 
-               int data_length, string data) {
-    char *buffer;
-    buffer = (char *) malloc(PACKETLEN);
-    unsigned char checksum[MD5LEN];
-    unsigned char *data_unsigned = new unsigned char[data_length + 1];
-    strcpy((char*) data_unsigned, data.c_str());
-    MD5(data_unsigned, data_length, checksum);
-    output("Encrypt Password = ",(unsigned char *)checksum, MD5LEN);
-    *(int*)buffer = (int)htonl(type);
-    *(int*)(buffer + 4) = (int)htonl(seq_num);
-    *(int*)(buffer + 8) = (int)htonl(window_size);
-    *(int*)(buffer + 12) = (int)htonl(data_length);
-    struct timeval time;
-    if (gettimeofday(&time, NULL) == -1) {
-        printf("Fail to get time.\n");
-    }
-    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
-    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
-    buffer[24] = '\0';
-    strncat(buffer + 24, reinterpret_cast<char*>(checksum), MD5LEN);
-//    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
-    strncat(buffer + 32, data.c_str(), data_length);
-    return buffer;
-}
-
 
 int getType(char* buffer) {
     int type = (int) ntohl(*(int*)(buffer));
@@ -138,6 +104,7 @@ int getDataLength(char* buffer) {
 
 char* getChecksum(char* buff) {
     char* res;
+    res = (char*)malloc(MD5LEN);
     strncpy(res, buff + 24, MD5LEN);
     return res;
 }
@@ -150,7 +117,7 @@ struct timeval getTimeStamp(char* buffer) {
 }
 
 string getData(char* buffer) {
-    string data((char*)(buffer + 32));
+    string data((char*)(buffer + 56));
     return data;
 }
 
@@ -159,14 +126,79 @@ void clearPacket(char* buffer) {
     free(buffer);
 }
 
-
-char* setTimestamp(char* buffer) {
+void setTimestamp(char* buffer) {
     struct timeval time;
     if (gettimeofday(&time, NULL) == -1) {
         printf("Fail to get time.\n");
     }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
+}
+
+void displayContent(char* pkt, bool data) {
+    cout << "###packet type= " << getType(pkt) << " seq_num= " << getSeqNum(pkt) << " window_size= " << getWindowSize(pkt) << " data_length= " << getDataLength(pkt) << " checksum= " << getChecksum(pkt);
+    if (data) {
+        cout << " data= " << getData(pkt) << endl;
+    } else {
+        cout << "\n";
+    }
+}
+
+char *str2md5(const char *str, int length) {
+    int n;
+    MD5_CTX c;
+    unsigned char digest[16];
+    char *out = (char*)malloc(33);
+    MD5_Init(&c);
+    while (length > 0) {
+        if (length > 512) {
+            MD5_Update(&c, str, 512);
+        } else {
+            MD5_Update(&c, str, length);
+        }
+        length -= 512;
+        str += 512;
+    }
+    
+    MD5_Final(digest, &c);
+    
+    for (n = 0; n < 16; ++n) {
+        snprintf(&(out[n*2]), 16*3, "%02x", (unsigned int)digest[n]);
+    }
+    return out;
+}
+
+char* setPacket(int type, int seq_num, int window_size,
+                int data_length, string data) {
+    char * buffer;
+    buffer = (char *) malloc(PACKETLEN);
+    char *checksum = (char*)malloc(MD5LEN + 1);
+    checksum = str2md5(data.c_str(), data_length);
+    printf("%s\n", checksum);
+    *(int*)buffer = (int)htonl(type);
+    *(int*)(buffer + 4) = (int)htonl(seq_num);
+    *(int*)(buffer + 8) = (int)htonl(window_size);
+    *(int*)(buffer + 12) = (int)htonl(data_length);
+    struct timeval time;
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
+    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
+    //    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
+    buffer[24] = '\0';
+    strncat(buffer + 24, checksum, MD5LEN);
+    cout << "after set checksum ";
+    printf("%s\n", buffer + 24, MD5LEN);
+    buffer[56] = '\0';
+    strncat(buffer + 56, data.c_str(), data_length);
+    cout << "all set" << endl;
+    cout << "###Set packet type= " << getType(buffer) << endl;
+    cout << " seq_num= " << getSeqNum(buffer) << endl;
+    cout << " window_size= " << getWindowSize(buffer) << endl;
+    cout << " data_length= " << getDataLength(buffer) << endl;
+    cout << " checksum= " << getChecksum(buffer) << endl;
+    cout << " data= " << getData(buffer) << endl;
     return buffer;
 }
 
@@ -192,6 +224,8 @@ bool comparator(const char *s1, const char *s2)
     cout << "Sequence number 1 " << getSeqNum(s1) << " And sequence number 2" << getSeqNum(s2) << endl;
     return getSeqNum(s1) < getSeqNum(s2);
 }
+
+
 
 int main (int numArgs, char **args) {
     cout << "Welcome to RecvFile System..." << endl;
@@ -307,13 +341,11 @@ int main (int numArgs, char **args) {
                 free(receivedPacket);
             } else {
 //                unsigned long received_checksum = computeChecksum(getData(receivedPacket));
-                unsigned char received_checksum[MD5LEN];
-                unsigned char *data_unsigned = new unsigned char[getDataLength(receivedPacket) + 1];
-                strcpy((char*) data_unsigned, getData(receivedPacket).c_str());
-                MD5(data_unsigned, getDataLength(receivedPacket), received_checksum);
-                cout << "Received checksum is " << getChecksum(receivedPacket);
-                output(" New calculated checksum is ", received_checksum, MD5LEN);
-                if (reinterpret_cast<char*>(received_checksum) != getChecksum(receivedPacket)) {
+                char *received_checksum = (char*)malloc(MD5LEN + 1);
+                received_checksum = str2md5(getData(receivedPacket).c_str(), getDataLength(receivedPacket));
+                printf("New calculated checksum is %s ", received_checksum);
+                printf("Received checksum is %s\n", getChecksum(receivedPacket));
+                if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {
                     //checksum is not the same,
                     cout << "Content not similar!!!" << endl;
                 } else {

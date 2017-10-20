@@ -37,8 +37,8 @@
 //#endif
 
 #define BUFLEN 5000  //Max length of buffer
-#define PACKETLEN 1032  //Max length of buffer
-#define MD5LEN 16
+#define PACKETLEN 1056  //Max length of buffer
+#define MD5LEN 32
 
 using namespace std;
 
@@ -96,7 +96,8 @@ int getDataLength(char* buffer) {
 //}
 
 char* getChecksum(char* buff) {
-    char* res;
+//    printf("%s", MD5LEN, buff + 24);
+    char* res = (char*)malloc(MD5LEN);
     strncpy(res, buff + 24, MD5LEN);
     return res;
 }
@@ -109,7 +110,7 @@ struct timeval getTimeStamp(char* buffer) {
 }
 
 string getData(char* buffer) {
-    string data((char*)(buffer + 32));
+    string data((char*)(buffer + 56));
     return data;
 }
 
@@ -137,7 +138,7 @@ void displayContent(char* pkt, bool data) {
 }
 
 bool isTimeout(int windowStart, vector<char*> my_packets) {
-    cout << "\n\ncheck Timeout for pkt " << getSeqNum(my_packets.at(0));
+//    cout << "\n\ncheck Timeout for pkt " << getSeqNum(my_packets.at(0));
     
     char* firstPacketInWin = my_packets.at(0);
     // displayContent(firstPacketInWin);
@@ -145,15 +146,15 @@ bool isTimeout(int windowStart, vector<char*> my_packets) {
     gettimeofday(&currentTime, NULL);
     sendTime = getTimeStamp(firstPacketInWin);
     timeradd(&sendTime, &timeout, &resultTime);
-    cout << "currentTime : " <<  currentTime.tv_sec << "." << currentTime.tv_usec << "| sendTime : " <<  sendTime.tv_sec << "." << sendTime.tv_usec << "| resultTime : " <<  resultTime.tv_sec << "." << resultTime.tv_usec << endl;
-    cout << " now: " << currentTime.tv_sec << "." << currentTime.tv_usec << "(should timeout at " << resultTime.tv_sec << "." << resultTime.tv_usec << ")" << endl;
+//    cout << "currentTime : " <<  currentTime.tv_sec << "." << currentTime.tv_usec << "| sendTime : " <<  sendTime.tv_sec << "." << sendTime.tv_usec << "| resultTime : " <<  resultTime.tv_sec << "." << resultTime.tv_usec << endl;
+//    cout << " now: " << currentTime.tv_sec << "." << currentTime.tv_usec << "(should timeout at " << resultTime.tv_sec << "." << resultTime.tv_usec << ")" << endl;
     if (timercmp(&currentTime, &resultTime, >)) {
         cout << "PKG " << getSeqNum(firstPacketInWin) << " timeout!" << endl;
         return true;
     } else {
-        cout << "no timeout" << endl;
+//        cout << "no timeout" << endl;
     }
-    cout << "\n\nleave Timeout" << endl;
+//    cout << "\n\nleave Timeout" << endl;
     return false;
 }
 
@@ -182,15 +183,43 @@ char* uncharToChar(unsigned char ar1[], int hm)
     return res;
 }
 
+char *str2md5(const char *str, int length) {
+    int n;
+    MD5_CTX c;
+    unsigned char digest[16];
+    char *out = (char*)malloc(33);
+    MD5_Init(&c);
+    while (length > 0) {
+        if (length > 512) {
+            MD5_Update(&c, str, 512);
+        } else {
+            MD5_Update(&c, str, length);
+        }
+        length -= 512;
+        str += 512;
+    }
+    
+    MD5_Final(digest, &c);
+    
+    for (n = 0; n < 16; ++n) {
+        snprintf(&(out[n*2]), 16*3, "%02x", (unsigned int)digest[n]);
+    }
+    return out;
+}
+
 char* setPacket(int type, int seq_num, int window_size, 
                int data_length, string data) {
     char * buffer;
     buffer = (char *) malloc(PACKETLEN);
-    unsigned char checksum[MD5LEN];
-    unsigned char *data_unsigned = new unsigned char[data_length + 1];
-    strcpy((char*) data_unsigned, data.c_str());
-    MD5(data_unsigned, data_length, checksum);
-    output("Encrypt Password = ", checksum, MD5LEN);
+    memset(buffer, 0, PACKETLEN);
+    char *checksum = (char*)malloc(MD5LEN + 1);
+    memset(checksum, 0, MD5LEN + 1);
+//    unsigned char *data_unsigned = new unsigned char[data_length + 1];
+//    strcpy((char*) data_unsigned, data.c_str());
+//    MD5(data_unsigned, data_length, checksum);
+//    output("Encrypt Password = ", checksum, MD5LEN);
+    checksum = str2md5(data.c_str(), data_length);
+    printf("%s\n", checksum);
     *(int*)buffer = (int)htonl(type);
     *(int*)(buffer + 4) = (int)htonl(seq_num);
     *(int*)(buffer + 8) = (int)htonl(window_size);
@@ -203,16 +232,18 @@ char* setPacket(int type, int seq_num, int window_size,
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
 //    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
     buffer[24] = '\0';
-    strncat(buffer + 24, uncharToChar(checksum, MD5LEN), MD5LEN);
+    strncat(buffer + 24, checksum, MD5LEN);
     cout << "after set checksum ";
-    for(int i=24;i<32;i++)
-    {
-        printf("%x",buffer[i]);
-    }
-    cout << "\n";
-    buffer[32] = '\0';
-    strncat(buffer + 32, data.c_str(), data_length);
-    cout << "###Set packet type= " << getType(buffer) << " seq_num= " << getSeqNum(buffer) << " window_size= " << getWindowSize(buffer) << " data_length= " << getDataLength(buffer) << " checksum= " << getChecksum(buffer) << " data= " << getData(buffer) << endl;
+    printf("%s\n", buffer + 24, MD5LEN);
+    buffer[56] = '\0';
+    strncat(buffer + 56, data.c_str(), data_length);
+    cout << "all set" << endl;
+    cout << "###Set packet type= " << getType(buffer) << endl;
+    cout << " seq_num= " << getSeqNum(buffer) << endl;
+    cout << " window_size= " << getWindowSize(buffer) << endl;
+    cout << " data_length= " << getDataLength(buffer) << endl;
+    cout << " checksum= " << getChecksum(buffer) << endl;
+    cout << " data= " << getData(buffer) << endl;
     return buffer;
 }
 
@@ -231,7 +262,8 @@ void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin
         }
         setTimestamp(my_packets.at(0));
         sendto(sock, my_packets.at(0), getDataLength(my_packets.at(0)) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
-        cout << "\n\n Resend..." << endl;
+        cout << "\n\n Resend...";
+        printf("checksum = %s", getChecksum(my_packets.at(0)));
     }
 }
 
@@ -342,7 +374,7 @@ int main(int argc, char * const argv[]) {
     int select_retval;
 
     while(1) {
-        cout << "hello" << endl;
+//        cout << "hello" << endl;
         FD_ZERO (&read_set); /* clear everything */
         FD_ZERO (&write_set); /* clear everything */
         
@@ -431,9 +463,9 @@ int main(int argc, char * const argv[]) {
             }
         }
 
-        if(FD_ISSET(sock, &write_set)){
-            cout << "======HAS SOMETHING TO WRITE=======" << endl;
-        }
+//        if(FD_ISSET(sock, &write_set)){
+//            cout << "======HAS SOMETHING TO WRITE=======" << endl;
+//        }
     }
     file.close();
     
