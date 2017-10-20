@@ -1,3 +1,4 @@
+//kl 8:30pm 
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -280,6 +281,7 @@ int main(int argc, char * const argv[]) {
         exit(-1);
     }
     while(1) {
+        cout << "hello" << endl;
         /* check timeout of first pkg in window, resend if timeout */
         handleTimeoutPkt(windowStart, my_packets, sin, sock);
         
