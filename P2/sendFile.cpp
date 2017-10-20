@@ -40,7 +40,7 @@
 
 using namespace std;
 
-struct timeval timeout;
+struct timeval timeout, time_out;
 int lastPktRetry;
 
 vector<string> split(const string &s, char delim) {
@@ -119,22 +119,31 @@ void setTimestamp(char* buffer) {
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
 }
 
-void displayContent(char* pkt) {
-    cout << "###packet type= " << getType(pkt) << " seq_num= " << getSeqNum(pkt) << " window_size= " << getWindowSize(pkt) << " data_length= " << getDataLength(pkt) << " checksum= " << getChecksum(pkt) << " data= " << getData(pkt) << endl;
+void displayContent(char* pkt, bool data) {
+    cout << "###packet type= " << getType(pkt) << " seq_num= " << getSeqNum(pkt) << " window_size= " << getWindowSize(pkt) << " data_length= " << getDataLength(pkt) << " checksum= " << getChecksum(pkt);
+    if (data) {
+        cout << " data= " << getData(pkt) << endl;
+    } else {
+        cout << "\n";
+    }
 }
 
 bool isTimeout(int windowStart, vector<char*> my_packets) {
-    cout << "\n\nisTimeout fn" << endl;
+    cout << "\n\ncheck Timeout for pkt " << getSeqNum(my_packets.at(0));
+    
     char* firstPacketInWin = my_packets.at(0);
     // displayContent(firstPacketInWin);
     struct timeval currentTime, sendTime, resultTime;
     gettimeofday(&currentTime, NULL);
     sendTime = getTimeStamp(firstPacketInWin);
     timeradd(&sendTime, &timeout, &resultTime);
-//    cout << "currentTime : " <<  currentTime.tv_sec << "." << currentTime.tv_usec << "| sendTime : " <<  sendTime.tv_sec << "." << sendTime.tv_usec << "| resultTime : " <<  resultTime.tv_sec << "." << resultTime.tv_usec << endl;
+    cout << "currentTime : " <<  currentTime.tv_sec << "." << currentTime.tv_usec << "| sendTime : " <<  sendTime.tv_sec << "." << sendTime.tv_usec << "| resultTime : " <<  resultTime.tv_sec << "." << resultTime.tv_usec << endl;
+    cout << " now: " << currentTime.tv_sec << "." << currentTime.tv_usec << "(should timeout at " << resultTime.tv_sec << "." << resultTime.tv_usec << ")" << endl;
     if (timercmp(&currentTime, &resultTime, >)) {
         cout << "PKG " << getSeqNum(firstPacketInWin) << " timeout!" << endl;
         return true;
+    } else {
+        cout << "no timeout" << endl;
     }
     cout << "\n\nleave Timeout" << endl;
     return false;
@@ -156,12 +165,8 @@ char* setPacket(int type, int seq_num, int window_size,
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
     *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
-    cout << "Size of checksum" << sizeof(checksum) << endl;
-    cout << "Size of unsigned long" << sizeof(unsigned long) << endl;
     buffer[32] = '\0';
     strncat(buffer + 32, data.c_str(), data_length);
-    cout << "Data to c_str()" << data.c_str() << endl;
-    cout << "Set Packet " << buffer+32 << endl;
     // cout << "###Set packet type= " << getType(buffer) << " seq_num= " << getSeqNum(buffer) << " window_size= " << getWindowSize(buffer) << " data_length= " << getDataLength(buffer) << " checksum= " << getChecksum(buffer) << " data= " << getData(buffer) << endl;
     return buffer;
 }
@@ -180,7 +185,7 @@ void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin
             }
         }
         setTimestamp(my_packets.at(0));
-        sendto(sock, my_packets.at(windowStart), getDataLength(my_packets.at(windowStart)) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
+        sendto(sock, my_packets.at(0), getDataLength(my_packets.at(0)) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
         cout << "\n\n Resend..." << endl;
     }
 }
@@ -199,7 +204,7 @@ char* receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) 
         cout << "Complete file has been sent successfully!" << endl;
         exit(0);
     }
-    displayContent(intoMe);
+    displayContent(intoMe, true);
     return intoMe;
 }
 
@@ -267,8 +272,8 @@ int main(int argc, char * const argv[]) {
     vector<char*> my_packets;
     int windowSize = 3;
     int windowStart = 0;
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 100000;
     lastPktRetry = 0;
     int lastPktSeq = -1;
     
@@ -286,76 +291,104 @@ int main(int argc, char * const argv[]) {
         std::cout<<"Err:cannot open the input file"<<std::endl;
         exit(-1);
     }
+
+
+    fd_set read_set, write_set;
+    int select_retval;
+
     while(1) {
         cout << "hello" << endl;
+        FD_ZERO (&read_set); /* clear everything */
+        FD_ZERO (&write_set); /* clear everything */
+
+        //put sock into read set
+        FD_SET (sock, &read_set);
+        FD_SET (sock, &write_set);
+
+        time_out.tv_usec = 100000; /* 1-tenth of a second timeout */
+        time_out.tv_sec = 0;
+        //select
+        select_retval = select(sock+1, &read_set, &write_set, NULL, &time_out);
+
+        if(select_retval<0){
+            cout<<"Err: select fail"<<endl;
+            exit(-1);
+        }
+
+        if(select_retval==0){
+            //nothing to do, continue
+            continue;
+        }
+        
         /* check timeout of first pkg in window, resend if timeout */
         handleTimeoutPkt(windowStart, my_packets, sin, sock);
-        
-        /* recv ack */
-        char* receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
-        
-        /* check if ack out-of-window [windowStart, my_packets.size + windowStart - 1]*/
-        int windowEnd = my_packets.size() + windowStart - 1;
-        cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
-        if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) > windowEnd) {
-            cout << "ACK out of window [" << windowStart << ", " << windowEnd << "]" << endl;
-        } else {
-            /* move window */
-            // delete
-            cout << "\n\nDelete pkg" << endl;
-            cout << "\n\nData in vector ===============before delete" << endl;
-             for (int i = 0; i < my_packets.size(); i++) {
-                 displayContent(my_packets.at(i));
-             }
-            for (int i = 0; i < getSeqNum(receivedPacket) - windowStart + 1; i++) {
-                clearPacket(my_packets.at(i));
-            }
-            my_packets.erase (my_packets.begin(), my_packets.begin() + getSeqNum(receivedPacket) - windowStart + 1);
-            cout << "\n\nData in vector ===============after delete" << endl;
-             for (int i = 0; i < my_packets.size(); i++) {
-                 displayContent(my_packets.at(i));
-             }
-            int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
-            windowStart = getSeqNum(receivedPacket) + 1;
-            cout << "Window start move to " << windowStart << endl;
+                 
+        if(FD_ISSET(sock, &read_set)){
+              /* recv ack */
+            char* receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
             
-            /* add new pkg into window */
-            cout << "\n\nAdd " << toReadLen << " pkgs to window" << endl;
-            int actualReadLen = 0;
-            int actualReadMin = windowStart + windowSize - toReadLen;
-            for (actualReadLen = 0; actualReadLen < toReadLen; actualReadLen ++) {
-                /* create toReadLen packets and push them to vector mypackets*/
-                char *data = (char *)malloc(1000);
-                file.read(data, 1000);
-                cout << "data(" << actualReadLen << ")= " << data << endl;
-                if(file.eof()){
-                    //reach the end of file
-                    cout << "Reaching to end of file. This is the last packet" << endl;
-                    file.close();
-                    my_packets.push_back(setPacket(3, actualReadMin + actualReadLen, windowSize, 1000, data)); // last packet
-                    lastPktSeq = windowStart + actualReadLen;
-                } else {
-                    my_packets.push_back(setPacket(1, actualReadMin + actualReadLen, windowSize, 1000, data));
+            /* check if ack out-of-window [windowStart, my_packets.size + windowStart - 1]*/
+            int windowEnd = my_packets.size() + windowStart - 1;
+            cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
+            if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) > windowEnd) {
+                cout << "ACK out of window [" << windowStart << ", " << windowEnd << "]" << endl;
+            } else {
+                /* move window */
+                // delete
+                cout << "\n\nDelete pkg" << endl;
+                cout << "\n\nData in vector ===============before delete" << endl;
+                 for (int i = 0; i < my_packets.size(); i++) {
+                     displayContent(my_packets.at(i), false);
+                 }
+                for (int i = 0; i < getSeqNum(receivedPacket) - windowStart + 1; i++) {
+                    clearPacket(my_packets.at(i));
                 }
-                /* push packet into window + send packet */
-                setTimestamp(my_packets.back());
-            }
-            /* send new pkg */
-            cout << "----" << windowSize << "----" << actualReadLen << endl;
-            // for (int i = 0; i < my_packets.size(); i++) {
-            //     my_packets.at(i).displayContent();
-            // }
-            int pendingPktmin = windowSize - actualReadLen;
-            for (int k = pendingPktmin; k < windowSize; k++) {
-                sendto(sock, my_packets.at(k), getDataLength(my_packets.at(k)) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
-                cout << "\n\nSend new pkg..." << endl;
-                displayContent(my_packets.at(k));
+                my_packets.erase (my_packets.begin(), my_packets.begin() + getSeqNum(receivedPacket) - windowStart + 1);
+                cout << "\n\nData in vector ===============after delete" << endl;
+                 for (int i = 0; i < my_packets.size(); i++) {
+                     displayContent(my_packets.at(i), false);
+                 }
+                int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
+                windowStart = getSeqNum(receivedPacket) + 1;
+                cout << "Window start move to " << windowStart << endl;
+                
+                /* add new pkg into window */
+                cout << "\n\nAdd " << toReadLen << " pkgs to window" << endl;
+                int actualReadLen = 0;
+                int actualReadMin = windowStart + windowSize - toReadLen;
+                for (actualReadLen = 0; actualReadLen < toReadLen; actualReadLen ++) {
+                    /* create toReadLen packets and push them to vector mypackets*/
+                    char *data = (char *)malloc(1000);
+                    file.read(data, 1000);
+                    // cout << "data(" << actualReadLen << ")= " << data << endl;
+                    if(file.eof()){
+                        //reach the end of file
+                        cout << "Reaching to end of file. This is the last packet" << endl;
+                        file.close();
+                        my_packets.push_back(setPacket(3, actualReadMin + actualReadLen, windowSize, 1000, data)); // last packet
+                        lastPktSeq = windowStart + actualReadLen;
+                    } else {
+                        my_packets.push_back(setPacket(1, actualReadMin + actualReadLen, windowSize, 1000, data));
+                    }
+                    /* push packet into window + send packet */
+                    setTimestamp(my_packets.back());
+                }
+                /* send new pkg */
+                cout << "----" << windowSize << "----" << actualReadLen << endl;
+                // for (int i = 0; i < my_packets.size(); i++) {
+                //     my_packets.at(i).displayContent();
+                // }
+                int pendingPktmin = windowSize - actualReadLen;
+                for (int k = pendingPktmin; k < windowSize; k++) {
+                    sendto(sock, my_packets.at(k), getDataLength(my_packets.at(k)) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
+                    cout << "\n\nSend new pkg..." << getSeqNum(my_packets.at(k)) << endl;
+                }
             }
         }
-        
-        
-        
-        
+
+        if(FD_ISSET(sock, &write_set)){
+            cout << "======HAS SOMETHING TO WRITE=======" << endl;
+        }
     }
     file.close();
     

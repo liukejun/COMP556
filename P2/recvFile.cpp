@@ -143,15 +143,16 @@ string createFile (string file) {
         string name = pathFile[1] + ".recv";
         int status = mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         ofstream file(path+name);
-        string data("To Test !!!! data to write to file");
-        file << data;
+        // string data("To Test !!!! data to write to file");
+        // file << data;
         return path+name;
     }
 }
 
 bool comparator(const char *s1, const char *s2)
-{
-    return getSeqNum(s1) - getSeqNum(s2);
+{   
+    cout << "Sequence number 1 " << getSeqNum(s1) << " And sequence number 2" << getSeqNum(s2) << endl;
+    return getSeqNum(s1) < getSeqNum(s2);
 }
 
 int main (int numArgs, char **args) {
@@ -242,6 +243,7 @@ int main (int numArgs, char **args) {
                 // path and filename, create a new file with.recv extension
                 cout << "Create file " << getData(receivedPacket) << endl;
                 pathFile = createFile(getData(receivedPacket));
+                cout << "Path File " << pathFile << endl;
                 my_packets.insert(receivedPacket);
                 cout << "Current set size is : " << my_packets.size() << endl;
                 cout << "Send ACK now" << getSeqNum(receivedPacket) << endl;
@@ -298,13 +300,15 @@ int main (int numArgs, char **args) {
                         cout << "##Send type= " << getType(ACK) << " seq_num= " << nextWindowStart - 1 << " window_size= " << getWindowSize(ACK) << " data_length= " << getDataLength(ACK) << " checksum= " << getChecksum(ACK) << " data= " << getData(ACK) << endl;
                         
                         // write to file and erase elements from windowStart - nextWindowStart - 1
-                        ofstream file(pathFile);
+                        cout << "Path file " << pathFile << endl;
+                        ofstream file(pathFile,ios_base::app);
                         set<char*>::iterator it = my_packets.begin();
                         for (it = my_packets.begin(); it != my_packets.end(); ) {
                             if (windowStart < nextWindowStart) {
                                 char* cur = *it;
                                 cout << "Current Packet to write to file " << getData(cur) << endl;
-                                // file << cur.getData();
+                                string toWrite = getData(cur);
+                                file << toWrite;
                                 cout << "Start to erase " << endl;
                                 clearPacket(cur);
                                 my_packets.erase(it++);
