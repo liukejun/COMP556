@@ -35,6 +35,7 @@
 #endif
 
 #define BUFLEN 5000  //Max length of buffer
+#define PACKETLEN 1032  //Max length of buffer
 
 using namespace std;
 
@@ -51,43 +52,114 @@ vector<string> split(const string &s, char delim) {
     return tokens;
 }
 
-MyPacket deserialize(char * buf) {
-    int type = (int) ntohl(*(int*)(buf));
-    int seq_num = (int) ntohl(*(int*)(buf + 4));
-    int window_size = (int) ntohl(*(int*)(buf + 8));
-    int data_length = (int) ntohl(*(int*)(buf + 12));
-    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buf + 16));
-    string data((char*)(buf + 24));
-    //    string rest((char*)(buf + 16));
-    //    cout << "rest = " << rest << endl;
-    //    const char* checksum = rest.substr(0, 16).c_str();
-    //    string data = rest.substr(16);
-    //    cout << "checksum = " << checksum << " data = " << data << endl;
-    //
-    MyPacket res(type, seq_num, window_size, data_length, checksum, data);
+void clearVector(vector<char*> v) {
+    for (int i = 0; i < v.size(); i ++) {
+        memset (&v.at(i), 0, PACKETLEN);
+        free(v.at(i));
+    }
+}
+
+unsigned long computeChecksum(string data) {
+    string input = data;
+    std::hash<std::string> hash_fn;
+    long res = hash_fn(input);
     return res;
 }
 
-bool isTimeout(int windowStart, vector<MyPacket> my_packets) {
+char* setPacket(int type, int seq_num, int window_size, 
+               int data_length, string data) {
+    char * buffer;
+    buffer = (char *) malloc(PACKETLEN);
+    unsigned long checksum = computeChecksum(data);
+    *(int*)buffer = (int)htonl(type);
+    *(int*)(buffer + 4) = (int)htonl(seq_num);
+    *(int*)(buffer + 8) = (int)htonl(window_size);
+    *(int*)(buffer + 12) = (int)htonl(data_length);
+    struct timeval time;
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
+    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
+    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
+    strncat(buffer + 32, data.c_str(), data_length);
+    return buffer;
+}
+
+
+int getType(char* buffer) {
+    int type = (int) ntohl(*(int*)(buffer));
+    return type;
+}
+
+int getSeqNum(char* buffer) {
+    int seq_num = (int) ntohl(*(int*)(buffer + 4));
+    return seq_num;
+}
+
+int getWindowSize(char* buffer) {
+    int window_size = (int) ntohl(*(int*)(buffer + 8));
+    return window_size;
+}
+
+int getDataLength(char* buffer) {
+    int data_length = (int) ntohl(*(int*)(buffer + 12));
+    return data_length;
+}
+
+unsigned long getChecksum(char* buffer) {
+    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buffer + 24));
+    return checksum;
+}
+
+struct timeval getTimeStamp(char* buffer) {
+    struct timeval time;
+    time.tv_sec = (long) ntohl(*(long*)(buffer + 16));
+    time.tv_usec = (int) ntohl(*(int*)(buffer + 20));
+    return time;
+}
+
+string getData(char* buffer) {
+    string data((char*)(buffer + 32));
+    return data;
+}
+
+void clearPacket(char* buffer) {
+    memset (&buffer, 0, PACKETLEN);
+    free(buffer);
+}
+
+void setTimestamp(char* buffer) {
+    struct timeval time;
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
+    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
+}
+
+
+bool isTimeout(int windowStart, vector<char*> my_packets) {
     cout << "\n\nTimeout" << endl;
-    MyPacket firstPacketInWin = my_packets.at(0);
+    char* firstPacketInWin = my_packets.at(0);
+    cout << "###packet type= " << getType(firstPacketInWin) << " seq_num= " << getSeqNum(firstPacketInWin) << " window_size= " << getWindowSize(firstPacketInWin) << " data_length= " << getDataLength(firstPacketInWin) << " checksum= " << getChecksum(firstPacketInWin) << " data= " << getData(firstPacketInWin) << endl;
     struct timeval currentTime, sendTime, resultTime;
     gettimeofday(&currentTime, NULL);
-    sendTime = firstPacketInWin.latestSendTime;
+    sendTime = getTimeStamp(firstPacketInWin);
     timeradd(&sendTime, &timeout, &resultTime);
 //    cout << "currentTime : " <<  currentTime.tv_sec << "." << currentTime.tv_usec << "| sendTime : " <<  sendTime.tv_sec << "." << sendTime.tv_usec << "| resultTime : " <<  resultTime.tv_sec << "." << resultTime.tv_usec << endl;
     if (timercmp(&currentTime, &resultTime, >)) {
-        cout << "PKG " << firstPacketInWin.getSeqNum() << " timeout!" << endl;
+        cout << "PKG " << getSeqNum(firstPacketInWin) << " timeout!" << endl;
         return true;
     }
     cout << "\n\nleave Timeout" << endl;
     return false;
 }
 
-void handleTimeoutPkt(int windowStart, vector<MyPacket> my_packets, sockaddr_in sin, int sock) {
+void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin, int sock) {
     // for the last packet, resend 10 times maximum
     if (isTimeout(windowStart, my_packets)) {
-        if (my_packets.at(0).getType() == 4) {
+        if (getType(my_packets.at(0)) == 4) {
             // This is the last packet
             if (lastPktRetry <= 10) {
                 lastPktRetry++;
@@ -96,14 +168,13 @@ void handleTimeoutPkt(int windowStart, vector<MyPacket> my_packets, sockaddr_in 
                 exit(1);
             }
         }
-        gettimeofday( &(my_packets.at(0).latestSendTime), NULL);
-        sendto(sock, my_packets.at(windowStart).getBuf(), my_packets.at(windowStart).getDataLength() + 24, 0, (struct sockaddr *)&sin, sizeof sin);
+        setTimestamp(my_packets.at(0));
+        sendto(sock, my_packets.at(windowStart), getDataLength(my_packets.at(windowStart)) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
         cout << "\n\n Resend..." << endl;
-        my_packets.at(windowStart).displayContent();
     }
 }
 
-MyPacket receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) {
+char* receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) {
     int recv_len;
     socklen_t addr_len = sizeof(struct sockaddr_in);
     if ((recv_len = recvfrom(sock, intoMe, BUFLEN, 0, (struct sockaddr *) &sin_other, &addr_len)) == -1)
@@ -112,16 +183,15 @@ MyPacket receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSe
     }
     
     cout << "Received ACK from " << inet_ntoa(sin_other.sin_addr) << ":" << ntohs(sin_other.sin_port) << endl;
-    MyPacket receivedPacket = deserialize(intoMe);
-    
     cout << "\n\n**********Received*********" << endl;
-    receivedPacket.displayContent();
-    if (receivedPacket.getSeqNum() == lastPktSeq) {
+    if (getSeqNum(intoMe) == lastPktSeq) {
         cout << "Complete file has been sent successfully!" << endl;
         exit(0);
     }
-    return receivedPacket;
+    cout << "###packet type= " << getType(intoMe) << " seq_num= " << getSeqNum(intoMe) << " window_size= " << getWindowSize(intoMe) << " data_length= " << getDataLength(intoMe) << " checksum= " << getChecksum(intoMe) << " data= " << getData(intoMe) << endl;
+    return intoMe;
 }
+
 
 int main(int argc, char * const argv[]) {
     argc = 5;
@@ -187,7 +257,7 @@ int main(int argc, char * const argv[]) {
     sin.sin_addr.s_addr = server_addr;
     sin.sin_port = htons(server_port);
     
-    vector<MyPacket> my_packets;
+    vector<char*> my_packets;
     int windowSize = 3;
     int windowStart = 0;
     timeout.tv_sec = 1;
@@ -197,15 +267,9 @@ int main(int argc, char * const argv[]) {
     
     string pathName = path + " " + fileName;
     int length = (int)pathName.length();
-    MyPacket dir_file(0, windowStart, windowSize, length, 0, pathName);
-    cout << "##Send type= " << dir_file.getType() << " seq_num= " << dir_file.getSeqNum() << " window_size= " << dir_file.getWinSize() << " data_length= " << dir_file.getDataLength() << " checksum= " << dir_file.getCheckSum() << " data= " << dir_file.getData() << endl;
-    
-    /* push packet into window + send packet */
-    struct timeval currentTime;
-    gettimeofday(&currentTime, NULL);
-    dir_file.latestSendTime = currentTime;
-    my_packets.push_back(dir_file);
-    sendto(sock, dir_file.getBuf(), dir_file.getDataLength() + 24, 0, (struct sockaddr *)&sin, sizeof sin);
+    char* packet = setPacket(0, windowStart, windowSize, length, pathName);
+    my_packets.push_back(packet);
+    sendto(sock, packet, getDataLength(packet) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
     
     //open the file
     std::fstream file;
@@ -220,31 +284,31 @@ int main(int argc, char * const argv[]) {
         handleTimeoutPkt(windowStart, my_packets, sin, sock);
         
         /* recv ack */
-        MyPacket receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
+        char* receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
         
         /* check if ack out-of-window [windowStart, my_packets.size + windowStart - 1]*/
         int windowEnd = my_packets.size() + windowStart - 1;
         cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
-        if (receivedPacket.getSeqNum() < windowStart || receivedPacket.getSeqNum() > windowEnd) {
+        if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) > windowEnd) {
             cout << "ACK out of window [" << windowStart << ", " << windowEnd << "]" << endl;
         } else {
             /* move window */
             // delete
             cout << "\n\nDelete pkg" << endl;
             cout << "\n\nData in vector ===============before delete" << endl;
-            for (int i = 0; i < my_packets.size(); i++) {
-                my_packets.at(i).displayContent();
-            }
+            // for (int i = 0; i < my_packets.size(); i++) {
+            //     my_packets.at(i).displayContent();
+            // }
 //            for (int i = 0; i < receivedPacket.getSeqNum() - windowStart + 1; i++) {
 //                my_packets.at(i).clear();
 //            }
-            my_packets.erase (my_packets.begin(), my_packets.begin() + receivedPacket.getSeqNum() - windowStart + 1);
+            my_packets.erase (my_packets.begin(), my_packets.begin() + getSeqNum(receivedPacket) - windowStart + 1);
             cout << "\n\nData in vector ===============after delete" << endl;
-            for (int i = 0; i < my_packets.size(); i++) {
-                my_packets.at(i).displayContent();
-            }
+            // for (int i = 0; i < my_packets.size(); i++) {
+            //     my_packets.at(i).displayContent();
+            // }
             int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
-            windowStart = receivedPacket.getSeqNum() + 1;
+            windowStart = getSeqNum(receivedPacket) + 1;
             cout << "Window start move to " << windowStart << endl;
             
             /* add new pkg into window */
@@ -260,27 +324,24 @@ int main(int argc, char * const argv[]) {
                     //reach the end of file
                     cout << "Reaching to end of file. This is the last packet" << endl;
                     file.close();
-                    my_packets.push_back(MyPacket(3, actualReadMin + actualReadLen, windowSize, 1000, 0, data)); // last packet
+                    my_packets.push_back(setPacket(3, actualReadMin + actualReadLen, windowSize, 1000, data)); // last packet
                     lastPktSeq = windowStart + actualReadLen;
                 } else {
-                    my_packets.push_back(MyPacket(0, actualReadMin + actualReadLen, windowSize, 1000, 0, data));
+                    my_packets.push_back(setPacket(0, actualReadMin + actualReadLen, windowSize, 1000, data));
                 }
                 /* push packet into window + send packet */
-                struct timeval newCurrentTime;
-                gettimeofday(&newCurrentTime, NULL);
-                my_packets.back().latestSendTime = newCurrentTime;
-                my_packets.back().displayContent();
+                setTimestamp(my_packets.back());
             }
             /* send new pkg */
             cout << "----" << windowSize << "----" << actualReadLen << endl;
-            for (int i = 0; i < my_packets.size(); i++) {
-                my_packets.at(i).displayContent();
-            }
+            // for (int i = 0; i < my_packets.size(); i++) {
+            //     my_packets.at(i).displayContent();
+            // }
             int pendingPktmin = windowSize - actualReadLen;
             for (int k = pendingPktmin; k < windowSize; k++) {
-                sendto(sock, my_packets.at(k).getBuf(), my_packets.at(k).getDataLength() + 24, 0, (struct sockaddr *)&sin, sizeof sin);
+                sendto(sock, my_packets.at(k), getDataLength(my_packets.at(k)) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
                 cout << "\n\nSend new pkg..." << endl;
-                my_packets.at(k).displayContent();
+                // my_packets.at(k).displayContent();
             }
         }
         
