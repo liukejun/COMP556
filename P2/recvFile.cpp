@@ -213,8 +213,10 @@ int main (int numArgs, char **args) {
         cout << "Waiting for data..." << endl;
         fflush(stdout);
         
+        char *receivedPacket;
+        receivedPacket = (char *)malloc(PACKETLEN);
         //try to receive some data, this is a blocking call
-        if ((recv_len = recvfrom(sock, buf, BUFLEN, 0, (struct sockaddr *) &si_other, &addr_len)) == -1)
+        if ((recv_len = recvfrom(sock, receivedPacket, PACKETLEN, 0, (struct sockaddr *) &si_other, &addr_len)) == -1)
         {
             perror("recvfrom()");
             exit(1);
@@ -222,9 +224,9 @@ int main (int numArgs, char **args) {
         
         //print details of the client/peer and the data received
         cout << "Received packet from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << endl;
-        char* receivedPacket = buf;
+        // cout << "###Buf type= " << getType(buf) << " seq_num= " << getSeqNum(buf) << " window_size= " << getWindowSize(buf) << " data_length= " << getDataLength(buf) << " checksum= " << getChecksum(buf) << " data= " << getData(buf) << endl;
         
-        cout << "###Recv packet type= " << getType(buf) << " seq_num= " << getSeqNum(buf) << " window_size= " << getWindowSize(buf) << " data_length= " << getDataLength(buf) << " checksum= " << getChecksum(buf) << " data= " << getData(buf) << endl;
+        cout << "###Recv packet type= " << getType(receivedPacket) << " seq_num= " << getSeqNum(receivedPacket) << " window_size= " << getWindowSize(receivedPacket) << " data_length= " << getDataLength(receivedPacket) << " checksum= " << getChecksum(receivedPacket) << " data= " << getData(receivedPacket) << endl;
         
         /* check whether received packet is in window([windowStart,windowStart+windowSize-1])
          if in window, check whether checksum is the same,
@@ -261,6 +263,8 @@ int main (int numArgs, char **args) {
             if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
                 // not in window
                 cout << "Packet " << getSeqNum(receivedPacket) << "not in window!" << endl;
+                memset(receivedPacket,0,PACKETLEN);
+                free(receivedPacket);
             } else {
                 unsigned long received_checksum = computeChecksum(getData(receivedPacket));
                 cout << "Received checksum is " << getChecksum(receivedPacket) << " New calculated checksum is " << received_checksum << endl;
@@ -314,7 +318,7 @@ int main (int numArgs, char **args) {
                     }
                 }
             }
-        } 
+        }
         memset(buf, 0, BUFLEN);
         // create file in subdirectory
         // int file_created = createFile(buf);

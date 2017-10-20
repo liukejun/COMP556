@@ -67,26 +67,6 @@ unsigned long computeChecksum(string data) {
     return res;
 }
 
-char* setPacket(int type, int seq_num, int window_size, 
-               int data_length, string data) {
-    char * buffer;
-    buffer = (char *) malloc(PACKETLEN);
-    unsigned long checksum = computeChecksum(data);
-    *(int*)buffer = (int)htonl(type);
-    *(int*)(buffer + 4) = (int)htonl(seq_num);
-    *(int*)(buffer + 8) = (int)htonl(window_size);
-    *(int*)(buffer + 12) = (int)htonl(data_length);
-    struct timeval time;
-    if (gettimeofday(&time, NULL) == -1) {
-        printf("Fail to get time.\n");
-    }
-    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
-    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
-    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
-    strncat(buffer + 32, data.c_str(), data_length);
-    return buffer;
-}
-
 
 int getType(char* buffer) {
     int type = (int) ntohl(*(int*)(buffer));
@@ -146,7 +126,7 @@ void displayContent(char* pkt) {
 bool isTimeout(int windowStart, vector<char*> my_packets) {
     cout << "\n\nisTimeout fn" << endl;
     char* firstPacketInWin = my_packets.at(0);
-    displayContent(firstPacketInWin);
+    // displayContent(firstPacketInWin);
     struct timeval currentTime, sendTime, resultTime;
     gettimeofday(&currentTime, NULL);
     sendTime = getTimeStamp(firstPacketInWin);
@@ -159,6 +139,33 @@ bool isTimeout(int windowStart, vector<char*> my_packets) {
     cout << "\n\nleave Timeout" << endl;
     return false;
 }
+
+char* setPacket(int type, int seq_num, int window_size, 
+               int data_length, string data) {
+    char * buffer;
+    buffer = (char *) malloc(PACKETLEN);
+    unsigned long checksum = computeChecksum(data);
+    *(int*)buffer = (int)htonl(type);
+    *(int*)(buffer + 4) = (int)htonl(seq_num);
+    *(int*)(buffer + 8) = (int)htonl(window_size);
+    *(int*)(buffer + 12) = (int)htonl(data_length);
+    struct timeval time;
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
+    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
+    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
+    cout << "Size of checksum" << sizeof(checksum) << endl;
+    cout << "Size of unsigned long" << sizeof(unsigned long) << endl;
+    buffer[32] = '\0';
+    strncat(buffer + 32, data.c_str(), data_length);
+    cout << "Data to c_str()" << data.c_str() << endl;
+    cout << "Set Packet " << buffer+32 << endl;
+    // cout << "###Set packet type= " << getType(buffer) << " seq_num= " << getSeqNum(buffer) << " window_size= " << getWindowSize(buffer) << " data_length= " << getDataLength(buffer) << " checksum= " << getChecksum(buffer) << " data= " << getData(buffer) << endl;
+    return buffer;
+}
+
 
 void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin, int sock) {
     // for the last packet, resend 10 times maximum
@@ -214,7 +221,7 @@ int main(int argc, char * const argv[]) {
             file_path = optarg;
         } else {
             fprintf(stderr, "Input Error!!! Usage: %s [-r host:port] [-f subdir/filename]\n",
-                    argv[0]);
+                argv[0]);
             exit(EXIT_FAILURE);
         }
     }
@@ -342,7 +349,7 @@ int main(int argc, char * const argv[]) {
             for (int k = pendingPktmin; k < windowSize; k++) {
                 sendto(sock, my_packets.at(k), getDataLength(my_packets.at(k)) + 32, 0, (struct sockaddr *)&sin, sizeof sin);
                 cout << "\n\nSend new pkg..." << endl;
-                // my_packets.at(k).displayContent();
+                displayContent(my_packets.at(k));
             }
         }
         
