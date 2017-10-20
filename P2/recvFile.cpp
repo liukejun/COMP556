@@ -118,7 +118,7 @@ string getData(char* buffer) {
 }
 
 void clearPacket(char* buffer) {
-    memset (&buffer, 0, PACKETLEN);
+    memset (buffer, 0, PACKETLEN);
     free(buffer);
 }
 
@@ -302,6 +302,7 @@ int main (int numArgs, char **args) {
                                 cout << "Current Packet to write to file " << getData(cur) << endl;
                                 // file << cur.getData();
                                 cout << "Start to erase " << endl;
+                                clearPacket(cur);
                                 my_packets.erase(it++);
                                 cout << "End erase ok" << endl;
                                 // cur.clear();
