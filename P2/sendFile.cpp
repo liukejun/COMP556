@@ -27,9 +27,9 @@
 #define be64toh(x) OSSwapBigToHostInt64(x)
 #define le64toh(x) OSSwapLittleToHostInt64(x)
 
-#define __BIG_ENDIAN    BIG_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
 #define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __BYTE_ORDER    BYTE_ORDER
+#define __BYTE_ORDER BYTE_ORDER
 #else
 #include
 #include
@@ -112,9 +112,9 @@ void clearPacket(char* buffer) {
 
 void setTimestamp(char* buffer) {
     struct timeval time;
-    if (gettimeofday(&time, NULL) == -1) {
-        printf("Fail to get time.\n");
-    }
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
 }
@@ -159,9 +159,9 @@ char* setPacket(int type, int seq_num, int window_size,
     *(int*)(buffer + 8) = (int)htonl(window_size);
     *(int*)(buffer + 12) = (int)htonl(data_length);
     struct timeval time;
-    if (gettimeofday(&time, NULL) == -1) {
-        printf("Fail to get time.\n");
-    }
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
     *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
@@ -299,26 +299,26 @@ int main(int argc, char * const argv[]) {
     while(1) {
         cout << "hello" << endl;
         FD_ZERO (&read_set); /* clear everything */
-        FD_ZERO (&write_set); /* clear everything */
-
-        //put sock into read set
-        FD_SET (sock, &read_set);
+        FD_ZERO (&write_set); /* clear everything */
+        
+        //put sock into read set
+        FD_SET (sock, &read_set);
         FD_SET (sock, &write_set);
-
+        
         time_out.tv_usec = 100000; /* 1-tenth of a second timeout */
-        time_out.tv_sec = 0;
-        //select
-        select_retval = select(sock+1, &read_set, &write_set, NULL, &time_out);
-
-        if(select_retval<0){
-            cout<<"Err: select fail"<<endl;
-            exit(-1);
-        }
-
-        if(select_retval==0){
-            //nothing to do, continue
-            continue;
-        }
+        time_out.tv_sec = 0;
+        
+        //select
+        select_retval = select(sock+1, &read_set, &write_set, NULL, &time_out);
+        
+        if(select_retval < 0){
+            cout<<"Err: select fail"<<endl;
+            exit(-1);
+        }
+        if(select_retval == 0){
+            //nothing to do, continue
+            continue;
+        }
         
         /* check timeout of first pkg in window, resend if timeout */
         handleTimeoutPkt(windowStart, my_packets, sin, sock);

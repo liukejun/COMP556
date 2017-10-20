@@ -28,9 +28,9 @@
 #define be64toh(x) OSSwapBigToHostInt64(x)
 #define le64toh(x) OSSwapLittleToHostInt64(x)
 
-#define __BIG_ENDIAN    BIG_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
 #define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __BYTE_ORDER    BYTE_ORDER
+#define __BYTE_ORDER BYTE_ORDER
 #else
 #include
 #include
@@ -69,9 +69,9 @@ char* setPacket(int type, int seq_num, int window_size,
     *(int*)(buffer + 8) = (int)htonl(window_size);
     *(int*)(buffer + 12) = (int)htonl(data_length);
     struct timeval time;
-    if (gettimeofday(&time, NULL) == -1) {
-        printf("Fail to get time.\n");
-    }
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
     *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
@@ -125,15 +125,16 @@ void clearPacket(char* buffer) {
 
 char* setTimestamp(char* buffer) {
     struct timeval time;
-    if (gettimeofday(&time, NULL) == -1) {
-        printf("Fail to get time.\n");
-    }
+    if (gettimeofday(&time, NULL) == -1) {
+        printf("Fail to get time.\n");
+    }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
     return buffer;
 }
 
 string createFile (string file) {
+    
     if (file.length() == 0) {
         cout << "Path and file name is empty" << "\n";
         return "";
