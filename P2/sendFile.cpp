@@ -18,6 +18,15 @@
 #include "SenderWindow.h"
 
 using namespace std;
+vector <string> split(const string &s, char delim) {
+    stringstream ss(s);
+    string item;
+    vector <string> tokens;
+    while (getline(ss, item, delim)) {
+        tokens.push_back(item);
+    }
+    return tokens;
+}
 
 int main(int argc, char *const argv[]) {
     // deal with input
@@ -75,12 +84,6 @@ int main(int argc, char *const argv[]) {
     sin.sin_addr.s_addr = server_addr;
     sin.sin_port = htons(server_port);
 
-    // send path and file name to receiver
-    string pathName = path + " " + fileName;
-    char *secret_message = new char[pathName.length() + 1];
-
-//    strcpy(secret_message,pathName.c_str());
-//
 //    sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
 
     SenderWindow senderWindow(file_path.c_str(), WINDOW_SIZE, sock, (struct sockaddr*) si_other,addr_len);

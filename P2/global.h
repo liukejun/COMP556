@@ -13,7 +13,7 @@
 #define TIMEOUT  5000
 #define  LAST_PACKET_RESENT_TIME 20
 
-enum SlotType{FIRST, NORMAL, LAST};
+enum SlotType {FIRST, NORMAL, LAST};
 enum SlotStatus{EMPTY, LOADED, SENT, WROTEN};
-enum WindowStatus{NORMAL, LAST};
+enum WindowStatus{WORKING, ENDDING};
 #endif //COMP_556_NETWORK_GLOBAL_H

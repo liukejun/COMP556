@@ -12,7 +12,7 @@ public:
     Slot(int win_size, int init_seq);
     ~Slot();
     void setHeader();
-    unsigned_short cksum(u_short *buf, int count);
+    unsigned short cksum(u_short *buf, int count);
     void setLoadedStatus(short data_size_in, SlotType slot_type_in, SlotStatus slot_status_in, int file_position_in) ;
     void setSentStatus();
     void setSentTime(struct timeval new_time);
@@ -25,7 +25,6 @@ public:
     int seq_number;
     int ack_number;
     short data_length;
-    int ack_number;
     char* slot_buf;
     int window_size; // number of slots in a window
     int resent_time;

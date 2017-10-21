@@ -31,12 +31,12 @@ void SenderWindow::sendPendingPackets() {
             if (cur_slot.slot_status == EMPTY) {
                 in_file.read(cur_slot.slot_buf + HEADER_SIZE, PACKET_SIZE - HEADER_SIZE);
                 streamsize size = in_file.gcount();
-                setLoadedStatus(size, NORMAL, LOADED);
+                cur_slot.setLoadedStatus(size, NORMAL, LOADED);
 
                 // check if file reaches the end
                 if (file.eof()) {
                     cur_slot.slot_type = LAST;
-                    window_status = LAST;
+                    window_status = ENDDING;
                 }
                 // set header in packet
                 cur_slot.setHeader();
@@ -48,7 +48,7 @@ void SenderWindow::sendPendingPackets() {
             long elapsed = (now.tv_sec - cur_slot.sent_time.tv_sec) * 1000000 + (now.tv_usec - cur_slot.sent_time.tv_usec);
             if (elapsed >= TIMEOUT) {
                 cur_slot.slot_status = LOADED;
-                if (window_status == LAST) {
+                if (window_status == ENDDING) {
                     cur_slot.resent_time++;
                     if (cur_slot.resent_time > LAST_PACKET_RESENT_TIME) {
                         is_complete = true;

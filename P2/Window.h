@@ -14,7 +14,7 @@ using namespace std;
 
 class Window {
 public:
-    virtual Window(char *file_path, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len);
+     Window(char *file_path, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len);
     ~Window();
     virtual void receivePacket();
     vector <string> split(const string &s, char delim);
