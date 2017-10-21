@@ -95,13 +95,16 @@ int getDataLength(char* buffer) {
 //    return checksum;
 //}
 
-char* getChecksum(char* buff) {
+string getChecksum(char* buff) {
 //    printf("%s", MD5LEN, buff + 24);
     char* res = (char*)malloc(MD5LEN + 1);
     res[0] = '\0';
     strncpy(res, buff + 24, MD5LEN);
     res[32] = '\0';
-    return res;
+    string data((char*)res);
+    memset(res, 0, MD5LEN + 1);
+    free(res);
+    return data;
 }
 
 struct timeval getTimeStamp(char* buffer) {
@@ -206,6 +209,7 @@ char *str2md5(const char *str, int length) {
     for (n = 0; n < 16; ++n) {
         snprintf(&(out[n*2]), 16*3, "%02x", (unsigned int)digest[n]);
     }
+    printf("--->str2 return addr：%p\n", out);
     return out;
 }
 
@@ -214,16 +218,13 @@ char* setPacket(int type, int seq_num, int window_size,
     char * buffer;
     buffer = (char *) malloc(PACKETLEN + 1);
     memset(buffer, 0, PACKETLEN);
-    char *checksum = (char*)malloc(MD5LEN + 1);
-    memset(checksum, 0, MD5LEN + 1);
-//    unsigned char *data_unsigned = new unsigned char[data_length + 1];
-//    strcpy((char*) data_unsigned, data.c_str());
-//    MD5(data_unsigned, data_length, checksum);
-//    output("Encrypt Password = ", checksum, MD5LEN);
-    cout << "===================" << endl;
-    printf("Generate checksum based on %d, %s\n", data_length, data.c_str());
-    checksum = str2md5(data.c_str(), data_length);
-    printf("%s\n", checksum);
+//    char *checksum = (char*)malloc(MD5LEN + 1);
+//    memset(checksum, 0, MD5LEN + 1);
+//    cout << "===================" << endl;
+//    printf("Generate checksum based on %d, %s\n", data_length, data.c_str());
+    char *checksum = str2md5(data.c_str(), data_length);
+    printf("--->checksum addr：%p\n", checksum);
+//    printf("%s\n", checksum);
     *(int*)buffer = (int)htonl(type);
     *(int*)(buffer + 4) = (int)htonl(seq_num);
     *(int*)(buffer + 8) = (int)htonl(window_size);
@@ -234,22 +235,24 @@ char* setPacket(int type, int seq_num, int window_size,
     }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
-//    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
     buffer[24] = '\0';
     strncat(buffer + 24, checksum, MD5LEN);
+    printf("--->buffer + 24 addr：%p\n", buffer + 24);
     cout << "after set checksum ";
     printf("%s\n", buffer + 24, MD5LEN);
+    memset(checksum, 0, MD5LEN + 1);
+    free(checksum);
     buffer[56] = '\0';
     strncat(buffer + 56, data.c_str(), data_length);
     buffer[PACKETLEN] = '\0';
-    printf("Content after buffer + 56 is %s\n", buffer+56);
-    cout << "all set" << endl;
-    cout << "###Set packet type= " << getType(buffer) << endl;
-    cout << " seq_num= " << getSeqNum(buffer) << endl;
-    cout << " window_size= " << getWindowSize(buffer) << endl;
-    cout << " data_length= " << getDataLength(buffer) << endl;
-    cout << " checksum= " << getChecksum(buffer) << endl;
-    cout << " data= " << getData(buffer) << endl;
+//    printf("Content after buffer + 56 is %s\n", buffer+56);
+//    cout << "all set" << endl;
+//    cout << "###Set packet type= " << getType(buffer) << endl;
+//    cout << " seq_num= " << getSeqNum(buffer) << endl;
+//    cout << " window_size= " << getWindowSize(buffer) << endl;
+//    cout << " data_length= " << getDataLength(buffer) << endl;
+//    cout << " checksum= " << getChecksum(buffer) << endl;
+//    cout << " data= " << getData(buffer) << endl;
     return buffer;
 }
 
@@ -269,7 +272,7 @@ void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin
         setTimestamp(my_packets.at(0));
         sendto(sock, my_packets.at(0), getDataLength(my_packets.at(0)) + 56, 0, (struct sockaddr *)&sin, sizeof sin);
         cout << "\n\n Resend...";
-        printf("checksum = %s", getChecksum(my_packets.at(0)));
+//        printf("checksum = %s", getChecksum(my_packets.at(0)));
     }
 }
 
@@ -282,9 +285,8 @@ char* receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) 
     }
     
     cout << "Received ACK from " << inet_ntoa(sin_other.sin_addr) << ":" << ntohs(sin_other.sin_port) << endl;
-    cout << "\n\n**********Received*********" << endl;
     printf("received ACK content %d\n", getSeqNum(intoMe));
-    cout << "Last Packet is " << lastPktSeq << endl;
+//    cout << "Last Packet is " << lastPktSeq << endl;
     if (getSeqNum(intoMe) == lastPktSeq) {
         cout << "Complete file has been sent successfully!" << endl;
         exit(0);
@@ -446,6 +448,7 @@ int main(int argc, char * const argv[]) {
                       char *data = (char *)malloc(1000+1);
 		      memset(data, 0, 1000+1);
                       file.read(data, 1000);
+                      printf("--->file data addr：%p\n", data);
 		      data[1000] = '\0';
                     // cout << "data(" << actualReadLen << ")= " << data << endl;
                       if(file.eof()){
@@ -453,7 +456,9 @@ int main(int argc, char * const argv[]) {
                           cout << "Reaching to end of file. This is the last packet" << endl;
                           file.close();
                           my_packets.push_back(setPacket(3, actualReadMin + actualReadLen, windowSize, strlen(data), data)); // last packet
-                          lastPktSeq = windowStart + actualReadLen + my_packets.size() - 1;
+                          lastPktSeq = actualReadMin + actualReadLen;
+                          actualReadLen++;
+                          break;
                       } else {
                           my_packets.push_back(setPacket(1, actualReadMin + actualReadLen, windowSize, strlen(data), data));
                       }
@@ -461,14 +466,14 @@ int main(int argc, char * const argv[]) {
                       setTimestamp(my_packets.back());
                   }
                 /* send new pkg */
-                  cout << "----" << windowSize << "----" << actualReadLen << endl;
+                  cout << "\n\n----" << windowSize << "----" << actualReadLen << endl;
                 // for (int i = 0; i < my_packets.size(); i++) {
                 //     my_packets.at(i).displayContent();
                 // }
-                  int pendingPktmin = windowSize - actualReadLen;
-                  for (int k = pendingPktmin; k < windowSize; k++) {
+                  int pendingPktmin = my_packets.size() - actualReadLen;
+                  for (int k = pendingPktmin; k < my_packets.size(); k++) {
                       sendto(sock, my_packets.at(k), getDataLength(my_packets.at(k)) + 56, 0, (struct sockaddr *)&sin, sizeof sin);
-                      cout << "\n\nSend new pkg..." << getSeqNum(my_packets.at(k)) << endl;
+                      cout << "send new pkg..." << getSeqNum(my_packets.at(k)) << endl;
                   }
                 }
             }
