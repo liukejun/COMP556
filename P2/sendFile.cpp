@@ -379,7 +379,8 @@ int main(int argc, char * const argv[]) {
         exit(-1);
     }
 
-
+    // read file to data
+    char *data = (char *)malloc(1000+1);
     fd_set read_set, write_set;
     int select_retval;
 
@@ -445,11 +446,10 @@ int main(int argc, char * const argv[]) {
                   int actualReadMin = windowStart + windowSize - toReadLen;
                   for (actualReadLen = 0; actualReadLen < toReadLen; actualReadLen ++) {
                     /* create toReadLen packets and push them to vector mypackets*/
-                      char *data = (char *)malloc(1000+1);
-		      memset(data, 0, 1000+1);
+		              memset(data, 0, 1000+1);
                       file.read(data, 1000);
                       printf("--->file data addr：%p\n", data);
-		      data[1000] = '\0';
+		              data[1000] = '\0';
                     // cout << "data(" << actualReadLen << ")= " << data << endl;
                       if(file.eof()){
                         //reach the end of file
@@ -484,6 +484,7 @@ int main(int argc, char * const argv[]) {
 //        }
     }
     file.close();
+    free(data);
     
     // send path and file name to receiver
 //    string pathName = path + " " + fileName;
