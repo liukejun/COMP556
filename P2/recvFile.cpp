@@ -97,15 +97,11 @@ int getDataLength(char* buffer) {
     return data_length;
 }
 
-//unsigned long getChecksum(char* buffer) {
-//    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buffer + 24));
-//    return checksum;
-//}
-
 char* getChecksum(char* buff) {
-    char* res;
-    res = (char*)malloc(MD5LEN);
+//    printf("%s", MD5LEN, buff + 24);
+    char* res = (char*)malloc(MD5LEN + 1);
     strncpy(res, buff + 24, MD5LEN);
+    res[32] = '\0';
     return res;
 }
 
@@ -168,11 +164,17 @@ char *str2md5(const char *str, int length) {
     return out;
 }
 
-char* setPacket(int type, int seq_num, int window_size,
-                int data_length, string data) {
+char* setPacket(int type, int seq_num, int window_size, 
+               int data_length, string data) {
     char * buffer;
-    buffer = (char *) malloc(PACKETLEN);
+    buffer = (char *) malloc(PACKETLEN + 1);
+    memset(buffer, 0, PACKETLEN);
     char *checksum = (char*)malloc(MD5LEN + 1);
+    memset(checksum, 0, MD5LEN + 1);
+//    unsigned char *data_unsigned = new unsigned char[data_length + 1];
+//    strcpy((char*) data_unsigned, data.c_str());
+//    MD5(data_unsigned, data_length, checksum);
+//    output("Encrypt Password = ", checksum, MD5LEN);
     checksum = str2md5(data.c_str(), data_length);
     printf("%s\n", checksum);
     *(int*)buffer = (int)htonl(type);
@@ -185,13 +187,14 @@ char* setPacket(int type, int seq_num, int window_size,
     }
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
-    //    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
+//    *(unsigned long*)(buffer + 24) = (unsigned long)htobe64(checksum);
     buffer[24] = '\0';
     strncat(buffer + 24, checksum, MD5LEN);
     cout << "after set checksum ";
     printf("%s\n", buffer + 24, MD5LEN);
     buffer[56] = '\0';
     strncat(buffer + 56, data.c_str(), data_length);
+    buffer[PACKETLEN] = '\0';
     cout << "all set" << endl;
     cout << "###Set packet type= " << getType(buffer) << endl;
     cout << " seq_num= " << getSeqNum(buffer) << endl;
@@ -287,7 +290,8 @@ int main (int numArgs, char **args) {
         fflush(stdout);
         
         char *receivedPacket;
-        receivedPacket = (char *)malloc(PACKETLEN);
+        receivedPacket = (char *)malloc(PACKETLEN+1);
+	    memset(receivedPacket, 0, PACKETLEN+1);
         //try to receive some data, this is a blocking call
         if ((recv_len = recvfrom(sock, receivedPacket, PACKETLEN, 0, (struct sockaddr *) &si_other, &addr_len)) == -1)
         {
@@ -312,21 +316,28 @@ int main (int numArgs, char **args) {
              if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
                 cout << "Packet " << getSeqNum(receivedPacket) << "not in window!" << endl;
              } else {
-                // path and filename, create a new file with.recv extension
-                cout << "Create file " << getData(receivedPacket) << endl;
-                pathFile = createFile(getData(receivedPacket));
-                cout << "Path File " << pathFile << endl;
-                my_packets.insert(receivedPacket);
-                cout << "Current set size is : " << my_packets.size() << endl;
-                cout << "Send ACK now" << getSeqNum(receivedPacket) << endl;
-                string data;
-                char* ACK = setPacket(2, getSeqNum(receivedPacket), getWindowSize(receivedPacket), 0, data);
-                sendto(sock, ACK, getDataLength(ACK) + 32, 0, (struct sockaddr *)&si_other, sizeof si_other);
-                my_packets.erase(my_packets.begin());
-                windowStart ++;
+		        char *received_checksum = (char*)malloc(MD5LEN + 1);
+                received_checksum = str2md5(getData(receivedPacket).c_str(), getDataLength(receivedPacket));
+                printf("New calculated checksum is %s ", received_checksum);
+                printf("Received checksum is %s\n", getChecksum(receivedPacket));
+        		if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {
+        		  cout << "Content of file name and path not similar!" << endl;
+        		} else {
+                          // path and filename, create a new file with.recv extension
+                          cout << "Create file " << getData(receivedPacket) << endl;
+                          pathFile = createFile(getData(receivedPacket));
+                          cout << "Path File " << pathFile << endl;
+                          my_packets.insert(receivedPacket);
+                          cout << "Current set size is : " << my_packets.size() << endl;
+                          cout << "Send ACK now" << getSeqNum(receivedPacket) << endl;
+                          string data;
+                          char* ACK = setPacket(2, getSeqNum(receivedPacket), getWindowSize(receivedPacket), 0, data);
+                          sendto(sock, ACK, getDataLength(ACK) + 56, 0, (struct sockaddr *)&si_other, sizeof si_other);
+                          my_packets.erase(my_packets.begin());
+                          windowStart ++;
+        		}
              }
-        } else {
-            cout << "Current set size is : " << my_packets.size() << endl;
+	    } else {
             cout << "==================Packets in set ===================" << endl;
             for (set<char*>::iterator it=my_packets.begin(); it!=my_packets.end(); ++it) {
                 char* cur = *it;
@@ -371,7 +382,7 @@ int main (int numArgs, char **args) {
                         cout << "Send ACK now " << nextWindowStart - 1 << endl;
                         string data;
                         char* ACK = setPacket(2, nextWindowStart - 1, getWindowSize(receivedPacket), 0, data);
-                        sendto(sock, ACK, getDataLength(ACK) + 24, 0, (struct sockaddr *)&si_other, sizeof si_other);
+                        sendto(sock, ACK, getDataLength(ACK) + 56, 0, (struct sockaddr *)&si_other, sizeof si_other);
                         cout << "##Send type= " << getType(ACK) << " seq_num= " << nextWindowStart - 1 << " window_size= " << getWindowSize(ACK) << " data_length= " << getDataLength(ACK) << " checksum= " << getChecksum(ACK) << " data= " << getData(ACK) << endl;
                         
                         // write to file and erase elements from windowStart - nextWindowStart - 1
@@ -381,15 +392,27 @@ int main (int numArgs, char **args) {
                         for (it = my_packets.begin(); it != my_packets.end(); ) {
                             if (windowStart < nextWindowStart) {
                                 char* cur = *it;
-                                cout << "Current Packet to write to file " << getData(cur) << endl;
-                                string toWrite = getData(cur);
-                                file << toWrite;
-                                cout << "Start to erase " << endl;
-                                clearPacket(cur);
-                                my_packets.erase(it++);
-                                cout << "End erase ok" << endl;
-                                // cur.clear();
-                                windowStart ++;
+                				if (getType(cur) == 3) {
+                					cout << "Current Packet to write to file " << getData(cur) << endl;
+                                    string toWrite = getData(cur);
+                                    file << toWrite;
+                                    cout << "Start to erase " << endl;
+                                    clearPacket(cur);
+                                    my_packets.erase(it++);
+                                    cout << "End erase ok" << endl;
+                				    file.close();
+                				    exit(0);
+                				} else {
+                                    cout << "Current Packet to write to file " << getData(cur) << endl;
+                                    string toWrite = getData(cur);
+                                    file << toWrite;
+                                    cout << "Start to erase " << endl;
+                                    clearPacket(cur);
+                                    my_packets.erase(it++);
+                                    cout << "End erase ok" << endl;
+                                    // cur.clear();`
+                                    windowStart ++;
+                				}
                             } else {
                                 ++it;
                             }
@@ -407,7 +430,5 @@ int main (int numArgs, char **args) {
         //     exit(1);
         // }
         
-        //        close(sock);
-        //        return 0;
     }
 }
