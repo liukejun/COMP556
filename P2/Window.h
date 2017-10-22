@@ -24,7 +24,7 @@ class Window {
 public:
      Window(const char *file_path, int window_size, int sock, struct sockaddr* si_other, socklen_t addr_len);
     vector <string> split(const string &s, char delim);
-    void updateSeqNumber(Slot slot);
+    void updateSeqNumber(Slot* slot);
     unsigned short cksum(unsigned short *buf, int count);
 
     // sock info

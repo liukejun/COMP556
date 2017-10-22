@@ -2,10 +2,11 @@
 // Created by SHUO ZHAO on 10/15/17.
 //
 #include "Slot.h"
+using namespace std;
 
 Slot::Slot(){
 }
-Slot::Slot(int init_seq): seq_number(init_seq), resent_times(0){
+Slot::Slot(int init_seq): seq_number(init_seq), resent_times(0), slot_status(EMPTY){
     slot_buf = (char*) malloc(PACKET_SIZE);
 }
 
@@ -37,7 +38,8 @@ void Slot::setHeader(){
     }
     // data_length
     *((char *)slot_buf + 1) = htons(data_length);
-    // header_size
+    // seq number
+    cout << "seq_number: " << seq_number <<endl;
     *((int *)slot_buf + 1) = htonl(seq_number);
     *((int *)slot_buf + 2) = htonl(ack_number);
     // checksum
@@ -60,6 +62,19 @@ void Slot::setSentStatus(){
 void Slot::setSentTime(struct timeval new_time){
     sent_time.tv_sec = new_time.tv_sec;
     sent_time.tv_usec = new_time.tv_usec;
+}
+
+void Slot::printBuf(){
+    cout << "*****************" <<endl;
+    short data_size = ntohs(*((short*)(slot_buf + 1)));
+    cout << "data_type: " <<  *((char *)slot_buf) << "data_length: " <<  data_size << endl;
+    cout << " seq_number: " << ntohl(*((int *)slot_buf + 1)) << endl;
+    cout << " ack_number: " <<  ntohl(*((int *)slot_buf + 2)) << endl;
+    cout << "cksum for header " <<  ntohs(*((int *)slot_buf + 3)) << endl;
+    cout << "cksum for data " <<  ntohs(*((int *)slot_buf + 3)) << endl;
+    string content((char*)(slot_buf + HEADER_SIZE), data_size);
+    cout << "data " << content <<endl;
+    cout << "*****************" <<endl;
 }
 
 

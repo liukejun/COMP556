@@ -23,16 +23,11 @@ vector <string> ReceiverWindow::split(const string &s, char delim) {
 
 
 void ReceiverWindow::receivePacket() {
-//    ssize_t recvfrom(int socket, void *restrict buffer, size_t length,
-//                     int flags, struct sockaddr *restrict address,
-//                     socklen_t *restrict address_len);
-
-
     int recv_len = recvfrom(sock, (void *) recvBuf, PACKET_SIZE, 0, (struct sockaddr *)si_other, &addr_len);
 //    int recv_len = recv(sock, (void *) recvBuf, PACKET_SIZE, 0);
-    if (recv_len < 0) {
+    if (recv_len <= 0) {
         cout << "receiver recvfrom failed" << endl;
-        exit(-1);
+        return;
     }
 
     if (recv_len < PACKET_SIZE) {
@@ -44,7 +39,7 @@ void ReceiverWindow::receivePacket() {
         } else {
 
             int seq_number_in = ntohl(*(((int *) recvBuf) + 1));
-            cout << "Got a new valid packet" << seq_number_in<< endl;
+            cout << "Got a new valid packet " << seq_number_in<< endl;
             // immediately ack a packet that already been saved into file.
             if (seq_number_in < slots[min_seq_idx].seq_number) {
                 cout << seq_number_in << "< " << slots[min_seq_idx].seq_number << ". an ack is sent right away" << endl;
@@ -71,6 +66,7 @@ void ReceiverWindow::savePacketToSlot(int seq_number_in) {
     // memcpy( void* dest, const void* src, std::size_t count );
     memcpy(cur_slot.slot_buf, recvBuf, PACKET_SIZE);
     cur_slot.slot_status = LOADED;
+    cur_slot.printBuf();
 }
 
 
@@ -85,20 +81,22 @@ void ReceiverWindow::writeFile() {
         Slot& cur_slot = slots[s_i];
 
         // write in to file
-        char data_type = *((char *) recvBuf);
-        short data_size = *((short *)(recvBuf + 1));
+        char data_type = *((char *) cur_slot.slot_buf);
+        short data_size = ntohs(*((short *)(cur_slot.slot_buf + 1)));
         cout << "data_type: " << data_type << "data_size: " << data_size << endl;
         if (data_type == 0) {// file name packet
             createFile(s_i);
             int ackNumber = ntohl(*(((int*)cur_slot.slot_buf) + 2));
             sendAck(ackNumber);
-        } else{
+        } else if (!file_name.empty()){
             out_file.write(cur_slot.slot_buf + HEADER_SIZE, data_size);
             out_file.flush();
             if (data_type == 2) // last packet
             {
                 is_complete = true;
             }
+        } else{
+            return;
         }
         cur_slot.slot_status = EMPTY;
         last_seq = cur_slot.seq_number;
@@ -112,7 +110,7 @@ void ReceiverWindow::writeFile() {
 
 void ReceiverWindow::createFile(int s_i) {
     Slot& slot = slots[s_i];
-    short data_length = *((char *) recvBuf + 1);
+    short data_length = ntohs(* ((short*)(recvBuf + 1)));
     string file_path_name_s (slot.slot_buf + HEADER_SIZE, data_length);
 //    memcpy(file_path_name, slot.slot_buf + HEADER_SIZE, data_length);
 

@@ -21,8 +21,8 @@ vector <string> Window::split(const string &s, char delim) {
     return tokens;
 }
 
-void Window::updateSeqNumber(Slot slot){
-    slot.seq_number += window_size;
+void Window::updateSeqNumber(Slot* slot){
+    slot->seq_number += window_size;
 }
 
 unsigned short Window::cksum(unsigned short *buf, int count) {

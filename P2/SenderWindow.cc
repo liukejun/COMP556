@@ -62,6 +62,8 @@ void SenderWindow::sendPendingPackets() {
             // send out packets
             if (cur_slot.slot_status == LOADED) {
                 cout << "trying to send packet " << cur_slot.seq_number << endl;
+                cur_slot.printBuf();
+
                 int sent = sendto(sock, cur_slot.slot_buf, PACKET_SIZE, 0, (struct sockaddr *) si_other, addr_len);
                 if (sent == PACKET_SIZE) {
                     cur_slot.setSentStatus();
@@ -83,6 +85,9 @@ void SenderWindow::loadFileName() {
     first_slot.data_length = strlen(file_path_name) + 1;
     strcpy(first_slot.slot_buf + HEADER_SIZE, file_path_name);
     first_slot.slot_status = LOADED;
+    first_slot.setHeader();
+//    cout<<"file name slot : data_length " << first_slot.data_length << endl;
+//    cout<<"file name slot : file_path_name " <<(char *) (first_slot.slot_buf + HEADER_SIZE) << endl;
 }
 
 void SenderWindow::recievePacket() {
@@ -110,8 +115,8 @@ void SenderWindow::recievePacket() {
 void SenderWindow::handleAck(int ackNumber) {
     int s_i = min_seq_idx;
     for (int count = 0; count < window_size && slots[s_i].seq_number <= ackNumber; count++, s_i = (s_i + 1) % window_size) {
-        Slot& cur_slot = slots[s_i];
-        cur_slot.slot_status = EMPTY;
+        Slot* cur_slot = &slots[s_i];
+        cur_slot->slot_status = EMPTY;
         updateSeqNumber(cur_slot);
     }
 
@@ -121,6 +126,7 @@ void SenderWindow::handleAck(int ackNumber) {
 
 
 bool SenderWindow::checkPacket(char* recvBuf){
+
     return true;
 //    // get all info
 //    unsigned short header_cksum_in = *((short*)((int *)recvBuf + 3));

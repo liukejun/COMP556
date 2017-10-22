@@ -25,6 +25,7 @@ public:
     void setLoadedStatus(short data_size_in, SlotType slot_type_in) ;
     void setSentStatus();
     void setSentTime(struct timeval new_time);
+    void printBuf();//helper for debugging
 
     SlotType slot_type;// enum SlotType{FIRST, NORMAL, LAST};
     SlotStatus slot_status; //enum SlotStatus{EMPTY, LOADED, SENT};

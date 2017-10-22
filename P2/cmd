@@ -1,1 +1,2 @@
 cmake -DCMAKE_BUILD_TYPE=Debug
+ ./sender  -r water.clear.rice.edu:18000  -f ./example1_8.txt
