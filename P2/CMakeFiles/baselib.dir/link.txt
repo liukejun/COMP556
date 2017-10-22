@@ -1,2 +1,0 @@
-/Library/Developer/CommandLineTools/usr/bin/ar qc libbaselib.a  CMakeFiles/baselib.dir/ReceiverWindow.cc.o CMakeFiles/baselib.dir/SenderWindow.cc.o CMakeFiles/baselib.dir/Slot.cc.o CMakeFiles/baselib.dir/Window.cc.o
-/Library/Developer/CommandLineTools/usr/bin/ranlib libbaselib.a

@@ -83,11 +83,13 @@ void SenderWindow::loadFileName() {
 
     // Save the file path in the packet data portion.
     first_slot.data_length = strlen(file_path_name) + 1;
+    string name = string(file_path_name, first_slot.data_length);
     strcpy(first_slot.slot_buf + HEADER_SIZE, file_path_name);
     first_slot.slot_status = LOADED;
     first_slot.setHeader();
-//    cout<<"file name slot : data_length " << first_slot.data_length << endl;
-//    cout<<"file name slot : file_path_name " <<(char *) (first_slot.slot_buf + HEADER_SIZE) << endl;
+    cout<<"file name slot : data_length " << first_slot.data_length << endl;
+    cout<<"file name slot : file_path_name " <<(char *) (first_slot.slot_buf + HEADER_SIZE) << endl;
+    first_slot.printBuf();
 }
 
 void SenderWindow::recievePacket() {

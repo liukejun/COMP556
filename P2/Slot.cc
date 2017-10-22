@@ -6,7 +6,8 @@ using namespace std;
 
 Slot::Slot(){
 }
-Slot::Slot(int init_seq): seq_number(init_seq), resent_times(0), slot_status(EMPTY){
+
+Slot::Slot(int init_seq): seq_number(init_seq), resent_times(0), slot_status(EMPTY), slot_type(NORMAL){
     slot_buf = (char*) malloc(PACKET_SIZE);
 }
 
@@ -27,19 +28,18 @@ void Slot::setHeader(){
     //data_type
     switch(slot_type){
         case(FIRST):
-            *((char *)slot_buf) = 0;
+            *((char *)slot_buf) = '0';
             break;
         case(NORMAL):
-            *((char *)slot_buf) = 1;
+            *((char *)slot_buf) = '1';
             break;
         case(LAST):
-            *((char *)slot_buf) = 2;
+            *((char *)slot_buf) = '2';
             break;
     }
     // data_length
     *((char *)slot_buf + 1) = htons(data_length);
     // seq number
-    cout << "seq_number: " << seq_number <<endl;
     *((int *)slot_buf + 1) = htonl(seq_number);
     *((int *)slot_buf + 2) = htonl(ack_number);
     // checksum

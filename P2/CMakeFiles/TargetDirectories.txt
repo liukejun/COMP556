@@ -1,5 +1,0 @@
-/Users/shuozhao/Downloads/Courses/COMP 556 Network/group_projects_new/RGA208/P2/CMakeFiles/sender.dir
-/Users/shuozhao/Downloads/Courses/COMP 556 Network/group_projects_new/RGA208/P2/CMakeFiles/rebuild_cache.dir
-/Users/shuozhao/Downloads/Courses/COMP 556 Network/group_projects_new/RGA208/P2/CMakeFiles/edit_cache.dir
-/Users/shuozhao/Downloads/Courses/COMP 556 Network/group_projects_new/RGA208/P2/CMakeFiles/receiver.dir
-/Users/shuozhao/Downloads/Courses/COMP 556 Network/group_projects_new/RGA208/P2/CMakeFiles/baselib.dir

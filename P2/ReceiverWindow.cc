@@ -84,20 +84,21 @@ void ReceiverWindow::writeFile() {
         char data_type = *((char *) cur_slot.slot_buf);
         short data_size = ntohs(*((short *)(cur_slot.slot_buf + 1)));
         cout << "data_type: " << data_type << "data_size: " << data_size << endl;
-        if (data_type == 0) {// file name packet
+        if (data_type == '0') {// file name packet
             createFile(s_i);
             int ackNumber = ntohl(*(((int*)cur_slot.slot_buf) + 2));
             sendAck(ackNumber);
         } else if (!file_name.empty()){
             out_file.write(cur_slot.slot_buf + HEADER_SIZE, data_size);
             out_file.flush();
-            if (data_type == 2) // last packet
+            if (data_type == '2') // last packet
             {
                 is_complete = true;
             }
         } else{
             return;
         }
+        updateSeqNumber(&cur_slot);
         cur_slot.slot_status = EMPTY;
         last_seq = cur_slot.seq_number;
     }
@@ -109,6 +110,7 @@ void ReceiverWindow::writeFile() {
 
 
 void ReceiverWindow::createFile(int s_i) {
+    cout << "creating file" << endl;
     Slot& slot = slots[s_i];
     short data_length = ntohs(* ((short*)(recvBuf + 1)));
     string file_path_name_s (slot.slot_buf + HEADER_SIZE, data_length);
