@@ -121,42 +121,46 @@ string getData(char* buffer) {
     return data;
 }
 
+//string getContentforChecksum(char* buffer) {
+//    stringstream strs;
+//    strs << getType(buffer);
+//    strs << getSeqNum(buffer);
+//    strs << getWindowSize(buffer);
+//    strs << getDataLength(buffer);  
+//    cout << "\n\nContent of Checksum " << strs.str() << endl;
+//    return strs.str();
+//}
+
+int getContentLength(char* buffer) {
+    stringstream strs;
+    strs << getType(buffer);
+    cout << "After append getType strs is " << strs.str() << endl;
+    strs << getSeqNum(buffer);
+    strs << getWindowSize(buffer);
+    strs << getDataLength(buffer);
+    cout << "\n\nContent of Checksum is" << strs.str() << endl;
+    return strs.str().length();
+}
+
 string getContentforChecksum(char* buffer) {
-//    cout << "length: " << getDataLength(buffer) << endl;
-    char* res = (char*)malloc(17 + getDataLength(buffer));
-    memset(res, 0, 17 + getDataLength(buffer));
+    int headerlength = getContentLength(buffer);
+    char* res = (char*)malloc(headerlength + 1 + getDataLength(buffer));
+    memset(res, 0, headerlength + 1 + getDataLength(buffer));
     res[0] = '\0';
     stringstream strs;
     strs << getType(buffer);
     strs << getSeqNum(buffer);
     strs << getWindowSize(buffer);
     strs << getDataLength(buffer);
-    
     strcat(res, strs.str().c_str());
-    
-//    cout << "without data:";
-//    for (int i = 0; i < 16; i++ ) {
-//        printf("%x", res[i]);
-//    }
-    
-    res[16] = '\0';
+    res[headerlength] = '\0';
     strcat(res, getData(buffer).c_str());
-//    strncpy(res, buffer, 24 + getDataLength(buffer));
-    res[16 + getDataLength(buffer)] = '\0';
+    res[headerlength + getDataLength(buffer)] = '\0';
     string data((char*)res);
-//    printf("buffer: %s", buffer);
-//    cout << "data: " << getData(buffer) << endl;
-//    printf("res: ");
-//    for (int i = 0; i <= 16 + getDataLength(buffer); i++ ) {
-//        printf("%x", res[i]);
-//    }
-//    cout << "\n";
-//    cout << "getContentForChecksum = " << data << endl;
-    memset(res, 0, 17 + getDataLength(buffer));
+    memset(res, 0, headerlength + 1 + getDataLength(buffer));
     free(res);
     return data;
 }
-
 
 void clearPacket(char* buffer) {
     memset (buffer, 0, PACKETLEN + 1);
@@ -252,7 +256,9 @@ char* setPacket(int type, int seq_num, int window_size,
     buffer[24] = '\0';
     strncat(buffer + 24, data.c_str(), data_length);
     buffer[24 + DATALEN] = '\0';
-    char *checksum = str2md5(getContentforChecksum(buffer).c_str(), data_length + 16);
+    string contentOfChecksum = getContentforChecksum(buffer);
+    int contentLength = contentOfChecksum.length();
+    char *checksum = str2md5(contentOfChecksum.c_str(), contentLength);
     strncat(buffer + 24 + DATALEN, checksum, MD5LEN);
     printf("checksum = %s", buffer + 24 + DATALEN);
     memset(checksum, 0, MD5LEN + 1);

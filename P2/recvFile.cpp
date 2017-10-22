@@ -79,9 +79,8 @@ int getDataLength(char* buffer) {
 }
 
 
-string getChecksum(char* buff) {
-    string data((char*)(buff + 24 + DATALEN));
-    return data;
+char* getChecksum(char* buff) {
+    return buff + 24 + DATALEN;
 }
 
 struct timeval getTimeStamp(char* buffer) {
@@ -103,38 +102,44 @@ string getData(char* buffer) {
     return data;
 }
 
+// getContentforChecksum(char* buffer) {
+//    stringstream strs;
+//    strs << getType(buffer);
+//    cout << "After append getType strs is " << strs.str() << endl;
+//    strs << getSeqNum(buffer);
+//    strs << getWindowSize(buffer);
+//   strs << getDataLength(buffer); 
+//    cout << "\n\nent of Checksum is" << strs.str() << endl; 
+//    return strs.str();
+//}
+
+int getContentLength(char* buffer) {
+    stringstream strs;
+    strs << getType(buffer);
+    cout << "After append getType strs is " << strs.str() << endl;
+    strs << getSeqNum(buffer);
+    strs << getWindowSize(buffer);
+    strs << getDataLength(buffer);
+    cout << "\n\nContent of Checksum is" << strs.str() << endl;
+    return strs.str().length();
+}
+
 string getContentforChecksum(char* buffer) {
-//    cout << "length: " << getDataLength(buffer) << endl;
-    char* res = (char*)malloc(17 + getDataLength(buffer));
-    memset(res, 0, 17 + getDataLength(buffer));
+    int headerlength = getContentLength(buffer);
+    char* res = (char*)malloc(headerlength + 1 + getDataLength(buffer));
+    memset(res, 0, headerlength + 1 + getDataLength(buffer));
     res[0] = '\0';
     stringstream strs;
     strs << getType(buffer);
     strs << getSeqNum(buffer);
     strs << getWindowSize(buffer);
     strs << getDataLength(buffer);
-    
     strcat(res, strs.str().c_str());
-    
-//    cout << "without data:";
-//    for (int i = 0; i < 16; i++ ) {
-//        printf("%x", res[i]);
-//    }
-    
-    res[16] = '\0';
+    res[headerlength] = '\0';
     strcat(res, getData(buffer).c_str());
-    //    strncpy(res, buffer, 24 + getDataLength(buffer));
-    res[16 + getDataLength(buffer)] = '\0';
+    res[headerlength + getDataLength(buffer)] = '\0';
     string data((char*)res);
-//    printf("buffer: %s", buffer);
-//    cout << "data: " << getData(buffer) << endl;
-//    printf("res: ");
-//    for (int i = 0; i <= 16 + getDataLength(buffer); i++ ) {
-//        printf("%x", res[i]);
-//    }
-//    cout << "\n";
-//    cout << "getContentForChecksum = " << data << endl;
-    memset(res, 0, 17 + getDataLength(buffer));
+    memset(res, 0, headerlength + 1 + getDataLength(buffer));
     free(res);
     return data;
 }
@@ -193,11 +198,6 @@ char* setPacket(int type, int seq_num, int window_size,
     char * buffer;
     buffer = (char *) malloc(PACKETLEN + 1);
     memset(buffer, 0, PACKETLEN + 1);
-    //    char *checksum = (char*)malloc(MD5LEN + 1);
-    //    memset(checksum, 0, MD5LEN + 1);
-    //    cout << "===================" << endl;
-    //    printf("Generate checksum based on %d, %s\n", data_length, data.c_str());
-    //    printf("%s\n", checksum);
     *(int*)buffer = (int)htonl(type);
     *(int*)(buffer + 4) = (int)htonl(seq_num);
     *(int*)(buffer + 8) = (int)htonl(window_size);
@@ -211,20 +211,16 @@ char* setPacket(int type, int seq_num, int window_size,
     buffer[24] = '\0';
     strncat(buffer + 24, data.c_str(), data_length);
     buffer[24 + DATALEN] = '\0';
-    char *checksum = str2md5(getContentforChecksum(buffer).c_str(), data_length + 16);
+    //cout<<getContentforChecksum(buffer).c_str()"<<getData(buffer).c_str()<<"  data_length"<<data_length + 16<<endl;
+    string contentOfChecksum = getContentforChecksum(buffer);
+    int contentLength = contentOfChecksum.length();
+    char *checksum = str2md5(contentOfChecksum.c_str(), contentLength);
+    cout<<"yanqiaoz after str2md5 checksum"<<checksum<<endl;
     strncat(buffer + 24 + DATALEN, checksum, MD5LEN);
     printf("checksum = %s", buffer + 24 + DATALEN);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
     buffer[PACKETLEN] = '\0';
-    //    printf("Content after buffer + 56 is %s\n", buffer+56);
-    //    cout << "all set" << endl;
-    //    cout << "###Set packet type= " << getType(buffer) << endl;
-    //    cout << " seq_num= " << getSeqNum(buffer) << endl;
-    //    cout << " window_size= " << getWindowSize(buffer) << endl;
-    //    cout << " data_length= " << getDataLength(buffer) << endl;
-    //    cout << " checksum= " << getChecksum(buffer) << endl;
-    //    cout << " data= " << getData(buffer) << endl;
     return buffer;
 }
 
@@ -247,7 +243,6 @@ string createFile (string file) {
 
 bool comparator(const char *s1, const char *s2)
 {   
-//    cout << "Sequence number 1 " << getSeqNum(s1) << " And sequence number 2" << getSeqNum(s2) << endl;
     return getSeqNum(s1) < getSeqNum(s2);
 }
 
@@ -322,15 +317,17 @@ int main (int numArgs, char **args) {
             perror("recvfrom()");
             exit(1);
         }
-        
-//	    printf("%s\n",receivedPacket);
-        //print details of the client/peer and the data received
+
+        cout<<endl;
         cout << "Received packet from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << endl;
-        // cout << "###Buf type= " << getType(buf) << " seq_num= " << getSeqNum(buf) << " window_size= " << getWindowSize(buf) << " data_length= " << getDataLength(buf) << " checksum= " << getChecksum(buf) << " data= " << getData(buf) << endl;
         
         cout << "#####Recv packet content########" << endl;
-        cout << "type= " << getType(receivedPacket) << " seq_num= " << getSeqNum(receivedPacket) << " window_size= " << getWindowSize(receivedPacket) << " data_length= " << getDataLength(receivedPacket) << " checksum= " << getChecksum(receivedPacket) << endl;
-//        cout << "\n\n";
+        cout << "type= " << getType(receivedPacket) << endl;
+ 	cout << " seq_num= " << getSeqNum(receivedPacket) << endl;
+	cout << " window_size= " << getWindowSize(receivedPacket) << endl;
+	cout << " data_length= " << getDataLength(receivedPacket) << endl;
+	cout << " checksum= " << getChecksum(receivedPacket) << endl;
+	//cout << " data= " << getData(receivedPacket) << endl;
         
         /* check whether received packet is in window([windowStart,windowStart+windowSize-1])
          if in window, check whether checksum is the same,
@@ -354,27 +351,24 @@ int main (int numArgs, char **args) {
                     memset(ACK, 0, PACKETLEN+1);
                     free(ACK);    
                  } else {
-                     char * forchecksum = setPacket(getType(receivedPacket), getSeqNum(receivedPacket), getWindowSize(receivedPacket), getDataLength(receivedPacket), getData(receivedPacket));
-                     const char *received_checksum = getChecksum(forchecksum).c_str();
+    		    string testChecksum = getContentforChecksum(receivedPacket);
+                    int testLength = testChecksum.length();
+                    const char* received_checksum = str2md5(testChecksum.c_str(), testLength);
     //                char *received_checksum = str2md5(getContentforChecksum(receivedPacket).c_str(), getDataLength(receivedPacket) + 16);
     //                printf("New calculated checksum is %s ", received_checksum);
     //                 cout << "Received checksum is " << getChecksum(receivedPacket) << endl;
-    //              if (strcmp(string(received_checksum), getChecksum(receivedPacket)) != 0) {
-                     if ((string(received_checksum)).compare(getChecksum(receivedPacket)) != 0) {
-                         memset(forchecksum, 0, PACKETLEN + 1);
-                         free(forchecksum);
+                  if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {
+    //                 if ((string(received_checksum)).compare(getChecksum(receivedPacket)) != 0) {
                       cout << "Content of file name and path not similar!" << endl;
                       char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
                       sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                       memset(ACK, 0, PACKETLEN+1);
                       free(ACK);       
                       } else {
-                        memset(forchecksum, 0, PACKETLEN + 1);
-                        free(forchecksum);
                         // path and filename, create a new file with.recv extension
-                        cout << "Create file " << getData(receivedPacket) << endl;
+        //                cout << "Create file " << getData(receivedPacket) << endl;
                         pathFile = createFile(getData(receivedPacket));
-                        cout << "Path File " << pathFile << endl;
+        //                cout << "Path File " << pathFile << endl;
                         my_packets.insert(receivedPacket);
                         cout << "Current set size is : " << my_packets.size() << endl;
                         cout << "Send ACK now" << getSeqNum(receivedPacket) << endl;
@@ -410,18 +404,18 @@ int main (int numArgs, char **args) {
                     free(ACK);    
                  } else {
     //                unsigned long received_checksum = computeChecksum(getData(receivedPacket));
-                    char * forchecksum = setPacket(getType(receivedPacket), getSeqNum(receivedPacket), getWindowSize(receivedPacket), getDataLength(receivedPacket), getData(receivedPacket));
-                    const char *received_checksum = getChecksum(forchecksum).c_str();
+    		    string testChecksum = getContentforChecksum(receivedPacket);
+                    int testLength = testChecksum.length();
+                    const char* received_checksum = str2md5(testChecksum.c_str(), testLength);
+	//	    cout << "yanqiao test type= " << getType(forchecksum) << " seq_num= " << getSeqNum(forchecksum) << " window_size= " << getWindowSize(forchecksum) << " data_length= " << getDataLength(forchecksum) << " checksum= " << getChecksum(forchecksum) << " data= " << getData(forchecksum) <<"end"<< endl;
     //                char *received_checksum = str2md5(getContentforChecksum(receivedPacket).c_str(), getDataLength(receivedPacket) + 16);
-    //                printf("New calculated checksum is %s ", received_checksum);
-    //                printf("Received checksum is %s\n", getChecksum(receivedPacket));
     //                if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {
     //              cout << "Start to compare received checksum" << endl;
     //              cout << "reveived_checksum is done " << string(received_checksum) << endl;
-                    if ((string(received_checksum)).compare(getChecksum(receivedPacket)) != 0) {
-                        //checksum is not the same,
-                        memset(forchecksum, 0, PACKETLEN + 1);
-                        free(forchecksum);
+   		    const char* received_packet_checksum = getChecksum(receivedPacket);
+		    printf("\nRECEIVED_PACKET_CHECKSUM is %s, while newly calculated checksum is %s\n", received_packet_checksum, received_checksum);
+                    if (strcmp(received_checksum, received_packet_checksum) != 0) {
+			//checksum is not the same,
                         cout << "Content not similar!!!" << endl;
                         char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
                         sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);      
@@ -429,8 +423,6 @@ int main (int numArgs, char **args) {
                         free(ACK);    
                     } else {
                         // in window and content is the same
-                        memset(forchecksum, 0, PACKETLEN + 1);
-                        free(forchecksum);
                         cout << "In window and checksum is the same!" << endl;
                         my_packets.insert(receivedPacket);
                         int nextWindowStart = windowStart;
@@ -454,8 +446,8 @@ int main (int numArgs, char **args) {
                             string data;
                             char* ACK = setPacket(2, nextWindowStart - 1, getWindowSize(receivedPacket), 0, data);
                             sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);
-                            cout << "type= " << getType(ACK) << " seq_num= " << nextWindowStart - 1 << " window_size= " << getWindowSize(ACK) << " data_length= " << getDataLength(ACK) << " checksum= " << getChecksum(ACK) << endl;
-                            cout << "\n\n";
+          //                  cout << "type= " << getType(ACK) << " seq_num= " << nextWindowStart - 1 << " window_size= " << getWindowSize(ACK) << " data_length= " << getDataLength(ACK) << " checksum= " << getChecksum(ACK) << endl;
+            //                cout << "\n\n";
                             memset(ACK, 0, PACKETLEN+1);
                             free(ACK);    
                             lastACKnum = nextWindowStart - 1;
