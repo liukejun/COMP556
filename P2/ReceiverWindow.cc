@@ -1,7 +1,7 @@
 #include "ReceiverWindow.h"
 
-ReceiverWindow::ReceiverWindow(const char* file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len) :
-        Window(file_path_name, window_size, sock, si_other, addr_len) {
+ReceiverWindow::ReceiverWindow(const char* file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len, int file_path_name_length) :
+        Window(file_path_name, window_size, sock, si_other, addr_len, file_path_name_length) {
     ack_buf = (char *) malloc(MIN_PACKET_SIZE);
 }
 

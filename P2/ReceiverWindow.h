@@ -28,7 +28,7 @@ using namespace std;
 class ReceiverWindow: public Window{
 public:
 
-    ReceiverWindow(const char *file_path, int window_size, int sock, struct sockaddr* si_other, socklen_t addr_len);
+    ReceiverWindow(const char *file_path, int window_size, int sock, struct sockaddr* si_other, socklen_t addr_len, int file_path_name_length);
     ~ReceiverWindow();
     int createFile (string file);
     bool checkPacket(char* recvBuf);

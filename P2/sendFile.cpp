@@ -88,7 +88,7 @@ int main(int argc, char *const argv[]) {
     sin.sin_addr.s_addr = server_addr;
     sin.sin_port = htons(server_port);
 
-    SenderWindow senderWindow(file_path.c_str(), WINDOW_SIZE, sock, (struct sockaddr*) &sin, sizeof sin);
+    SenderWindow senderWindow(file_path.c_str(), WINDOW_SIZE, sock, (struct sockaddr*) &sin, sizeof sin, file_path.length() + 1);
     while (!senderWindow.is_complete) {
         /* set up the file descriptor bit map that select should be watching */
         FD_ZERO(&read_set); /* clear everything */

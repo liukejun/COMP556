@@ -25,6 +25,7 @@ unsigned short Slot::cksum(unsigned short *buf, int count) {
 }
 
 void Slot::setHeader(){
+    cout << "trying to set the header for packet " << seq_number << endl;
     //data_type
     switch(slot_type){
         case(FIRST):
@@ -38,7 +39,7 @@ void Slot::setHeader(){
             break;
     }
     // data_length
-    *((char *)slot_buf + 1) = htons(data_length);
+    *((short*)((char *)slot_buf + 1)) = htons(data_length);
     // seq number
     *((int *)slot_buf + 1) = htonl(seq_number);
     *((int *)slot_buf + 2) = htonl(ack_number);
@@ -66,14 +67,13 @@ void Slot::setSentTime(struct timeval new_time){
 
 void Slot::printBuf(){
     cout << "*****************" <<endl;
-    short data_size = ntohs(*((short*)(slot_buf + 1)));
-    cout << "data_type: " <<  *((char *)slot_buf) << "data_length: " <<  data_size << endl;
-    cout << " seq_number: " << ntohl(*((int *)slot_buf + 1)) << endl;
-    cout << " ack_number: " <<  ntohl(*((int *)slot_buf + 2)) << endl;
+    short data_size = ntohs(*((short*)((char*) slot_buf + 1)));
+    cout << "data_type: " <<  *((char *)slot_buf) << " data_length: " <<  data_size << endl;
+    cout << "seq_number: " << ntohl(*((int *)slot_buf + 1)) << endl;
+    cout << "ack_number: " <<  ntohl(*((int *)slot_buf + 2)) << endl;
     cout << "cksum for header " <<  ntohs(*((int *)slot_buf + 3)) << endl;
     cout << "cksum for data " <<  ntohs(*((int *)slot_buf + 3)) << endl;
-    string content((char*)(slot_buf + HEADER_SIZE), data_size);
-    cout << "data " << content <<endl;
+    cout << "data " << (char *) (slot_buf + HEADER_SIZE) <<endl;
     cout << "*****************" <<endl;
 }
 

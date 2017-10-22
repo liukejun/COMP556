@@ -4,8 +4,10 @@
 #include <iostream>
 #include "Window.h"
 
-Window::Window(const char* file, int w_size, int sock_in, struct sockaddr *si_other_in, socklen_t addr_len_in):file_path_name(file), window_size
-        (w_size), sock (sock_in), si_other(si_other_in), addr_len(addr_len_in), min_seq_idx(0), is_complete(false){
+Window::Window(const char* file, int w_size, int sock_in, struct sockaddr *si_other_in, socklen_t addr_len_in, int file_path_name_length_in)
+        :file_path_name(file), window_size
+        (w_size), sock (sock_in), si_other(si_other_in), addr_len(addr_len_in), min_seq_idx(0), is_complete(false), file_path_name_length
+        (file_path_name_length_in){
     for (int i = 0; i < window_size; i++){
         slots.push_back(Slot(i));
     }

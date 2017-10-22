@@ -71,7 +71,7 @@ int main (int numArgs, char **args) {
         abort();
     }
 
-    ReceiverWindow receiverWindowm(nullptr, WINDOW_SIZE, sock, (struct sockaddr*) &si_other, addr_len);
+    ReceiverWindow receiverWindowm(nullptr, WINDOW_SIZE, sock, (struct sockaddr*) &si_other, addr_len, 0);
     //keep listening for data
     while(!receiverWindowm.is_complete)
     {

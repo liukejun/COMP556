@@ -1,8 +1,8 @@
 #include "SenderWindow.h"
 
 
-SenderWindow::SenderWindow(const char *file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len) :
-        Window(file_path_name, window_size, sock, si_other, addr_len) {
+SenderWindow::SenderWindow(const char *file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len, int file_path_name_length) :
+        Window(file_path_name, window_size, sock, si_other, addr_len, file_path_name_length) {
     // open the file
     in_file.open(file_path_name);
     if (!in_file) {
@@ -82,12 +82,13 @@ void SenderWindow::loadFileName() {
     first_slot.slot_type = FIRST;
 
     // Save the file path in the packet data portion.
-    first_slot.data_length = strlen(file_path_name) + 1;
+//    first_slot.data_length = strlen(file_path_name) + 1;
+    first_slot.data_length = file_path_name_length;
     string name = string(file_path_name, first_slot.data_length);
     strcpy(first_slot.slot_buf + HEADER_SIZE, file_path_name);
     first_slot.slot_status = LOADED;
     first_slot.setHeader();
-    cout<<"file name slot : data_length " << first_slot.data_length << endl;
+    cout<<"file name slot : data_length " << ntohs(*((short*)(first_slot.slot_buf + 1))) << endl;
     cout<<"file name slot : file_path_name " <<(char *) (first_slot.slot_buf + HEADER_SIZE) << endl;
     first_slot.printBuf();
 }

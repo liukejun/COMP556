@@ -22,7 +22,7 @@ using namespace std;
 
 class Window {
 public:
-     Window(const char *file_path, int window_size, int sock, struct sockaddr* si_other, socklen_t addr_len);
+     Window(const char *file_path, int window_size, int sock, struct sockaddr* si_other, socklen_t addr_len, int file_path_name_length_in);
     vector <string> split(const string &s, char delim);
     void updateSeqNumber(Slot* slot);
     unsigned short cksum(unsigned short *buf, int count);
@@ -37,6 +37,7 @@ public:
     int file_length;
     string file_path;
     string file_name;
+    int file_path_name_length;
 
     // window info
     int window_size;
