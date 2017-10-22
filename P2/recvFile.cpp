@@ -1,20 +1,20 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <string>
-#include <iostream>
-#include <vector>
-#include <sstream>
-#include <fstream>
-#include <cstdlib>
 #include <sys/stat.h>
+#include <arpa/inet.h>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <netdb.h>
+#include <netinet/in.h>
 #include "ReceiverWindow.h"
+#include <sstream>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string>
+#include <string.h>
+#include <unistd.h>
+#include <vector>
 using namespace std;
 
 vector <string> split(const string &s, char delim) {
@@ -28,12 +28,9 @@ vector <string> split(const string &s, char delim) {
 }
 int main (int numArgs, char **args) {
     cout << "Welcome to RecvFile System..." << endl;
-    char *buf;
-    buf = (char *)malloc(PACKET_SIZE);
     unsigned short recv_port = 0;
     struct sockaddr_in si_me, si_other;
     int sock;
-    long recv_len;
     int optval = 1;
     /* socket address variables for a connected client */
     socklen_t addr_len = sizeof(struct sockaddr_in);
@@ -74,28 +71,13 @@ int main (int numArgs, char **args) {
         abort();
     }
 
-    ReceiverWindow recvWindow(nullptr, WINDOW_SIZE, sock, (struct sockaddr*) si_other,addr_len);
+    ReceiverWindow receiverWindowm(nullptr, WINDOW_SIZE, sock, (struct sockaddr*) &si_other, addr_len);
     //keep listening for data
-    while(!recvWindow.is_complete)
+    while(!receiverWindowm.is_complete)
     {
-
         //try to receive some data, this is a blocking call
-        recvWindow.receivePacket();
-
-//
-//        //print details of the client/peer and the data received
-//        cout << "Received packet from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << endl;
-//        cout << "Data: " << buf << endl;
-//
-//        // create file in subdirectory
-//        int file_created = createFile(buf);
-//
-//        if (file_created == -1) {
-//            perror("Cannot create file correctly!");
-//            exit(1);
-//        }
-//
-        close(sock);
-        return 0;
+        receiverWindowm.receivePacket();
     }
+    close(sock);
+    return 0;
 }

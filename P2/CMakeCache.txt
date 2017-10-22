@@ -179,6 +179,9 @@ CMAKE_STRIP:FILEPATH=/Library/Developer/CommandLineTools/usr/bin/strip
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
+//Dependencies for target
+baselib_LIB_DEPENDS:STATIC=
+
 //Value Computed by CMake
 network_BINARY_DIR:STATIC=/Users/shuozhao/Downloads/Courses/COMP 556 Network/group_projects_new/RGA208/P2
 

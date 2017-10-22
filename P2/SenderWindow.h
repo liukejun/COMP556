@@ -1,22 +1,26 @@
-//
-// Created by SHUO ZHAO on 10/15/17.
-//
-
 #ifndef COMP_556_NETWORK_SENDERWINDOW_H
 #define COMP_556_NETWORK_SENDERWINDOW_H
 #include <iostream>
+#include <sys/time.h>
 #include "Window.h"
 
 
-
-class SenderWindow {
+class SenderWindow: public Window {
 public:
 
-    SenderWindow(char *file_path, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len);
+    SenderWindow(const char *file_path, int window_size, int sock, struct sockaddr* si_other, socklen_t addr_len);
 
-    void sendPendingPackets(int num_sent_pakets, int sock, struct sockaddr *sin, socklen_t addrlen);
+    ~SenderWindow();
 
-    int recievePacket(char buf, int size); // receive packet, store it in the temp buffer and return the size
+    void sendPendingPackets();
+
+    void recievePacket();
+
+    void loadFileName();
+
+    void handleAck(int ackNumber);
+
+    bool checkPacket(char* recvBuf);
 
     ifstream in_file;
 };

@@ -1,10 +1,8 @@
-//
-// Created by SHUO ZHAO on 10/15/17.
-//
 #include "SenderWindow.h"
-SenderWindow::SenderWindow(char *file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len) :
-        SuperClass(file_path_name, window_size, sock, sockaddr * si_other, addr_len) {
 
+
+SenderWindow::SenderWindow(const char *file_path_name, int window_size, int sock, struct sockaddr *si_other, socklen_t addr_len) :
+        Window(file_path_name, window_size, sock, si_other, addr_len) {
     // open the file
     in_file.open(file_path_name);
     if (!in_file) {
@@ -12,18 +10,22 @@ SenderWindow::SenderWindow(char *file_path_name, int window_size, int sock, stru
         exit(-1);   // call system to stop
     }
 
-    // get length of file:
+    // get length of file
     in_file.seekg(0, in_file.end);
-    file_length = is.tellg();
+    file_length = in_file.tellg();
     in_file.seekg(0, in_file.beg);
 
+    // load file name into first slot
     loadFileName();
 }
+
+
 SenderWindow::~SenderWindow(){
     in_file.close();
 }
-void SenderWindow::sendPendingPackets() {
 
+
+void SenderWindow::sendPendingPackets() {
     for (int s_i = min_seq_idx, count = 0; count < window_size && (!is_complete); count++, s_i = (s_i + 1) % window_size) {
         {
             Slot cur_slot = slots[s_i];
@@ -31,10 +33,10 @@ void SenderWindow::sendPendingPackets() {
             if (cur_slot.slot_status == EMPTY) {
                 in_file.read(cur_slot.slot_buf + HEADER_SIZE, PACKET_SIZE - HEADER_SIZE);
                 streamsize size = in_file.gcount();
-                cur_slot.setLoadedStatus(size, NORMAL, LOADED);
+                cur_slot.setLoadedStatus(size, NORMAL);
 
                 // check if file reaches the end
-                if (file.eof()) {
+                if (in_file.eof()) {
                     cur_slot.slot_type = LAST;
                     window_status = ENDDING;
                 }
@@ -49,8 +51,8 @@ void SenderWindow::sendPendingPackets() {
             if (elapsed >= TIMEOUT) {
                 cur_slot.slot_status = LOADED;
                 if (window_status == ENDDING) {
-                    cur_slot.resent_time++;
-                    if (cur_slot.resent_time > LAST_PACKET_RESENT_TIME) {
+                    cur_slot.resent_times++;
+                    if (cur_slot.resent_times > LAST_PACKET_RESENT_TIME) {
                         is_complete = true;
                         cur_slot.slot_status = SENT;
                     }
@@ -60,7 +62,7 @@ void SenderWindow::sendPendingPackets() {
             // send out packets
             if (cur_slot.slot_status == LOADED) {
                 int sent = sendto(sock, cur_slot.slot_buf, PACKET_SIZE, 0, (struct sockaddr *) si_other, addr_len);
-                if (send == PACKET_SIZE) {
+                if (sent == PACKET_SIZE) {
                     cur_slot.setSentStatus();
                 } else {
                     cout << "Trying to send size of " << PACKET_SIZE << " but sent " << sent << " instead!" << endl;
@@ -71,7 +73,7 @@ void SenderWindow::sendPendingPackets() {
 }
 
 
-void loadFileName() {
+void SenderWindow::loadFileName() {
     // load it to the first slot
     Slot first_slot = slots[0];
     first_slot.slot_type = FIRST;
@@ -84,39 +86,43 @@ void loadFileName() {
 
 void SenderWindow::recievePacket() {
     //try to receive some data, this is a blocking call
-    int recv_len = recvfrom(sock, recvBuf, PACKET_SIZE, 0, (struct sockaddr *) si_other, addr_len); // recieve ack msg
+    int recv_len = recvfrom(sock, recvBuf, PACKET_SIZE, 0, (struct sockaddr *) si_other, &addr_len); // recieve ack msg
     if (recv_len < 0) {
         cout << "sender recvfrom failed" << endl;
         exit(-1);
     }
     if (recv_len == MIN_PACKET_SIZE){//ack packet size is set to the MIN_PACKET_SIZE
         if (checkPacket(recvBuf)){
-           int ackNumber = ntohl(*(((int*)recvBuf) + 2));
+            int ackNumber = ntohl(*(((int*)recvBuf) + 2));
             handleAck(ackNumber);
         } else {
-            cout << "Corrupt file. Discard" << endl;
+            cout << "Check failed. Discard..." << endl;
         }
     } else {
         cout << "Trying to receive size of " << MIN_PACKET_SIZE << " but got " << recv_len << " instead!" << endl;
     }
 }
 
+
 void SenderWindow::handleAck(int ackNumber) {
-    for (int s_i = min_seq_idx, count = 0; count < window_size && slots[s_i].seq_number <= ackNumber; count++, s_i = (s_i + 1) % window_size) {
+    int s_i = min_seq_idx;
+    for (int count = 0; count < window_size && slots[s_i].seq_number <= ackNumber; count++, s_i = (s_i + 1) % window_size) {
         Slot cur_slot = slots[s_i];
         cur_slot.slot_status = EMPTY;
-        cur_slot.updateSeqNumber();
+        updateSeqNumber(cur_slot);
     }
+
     min_seq_idx = s_i;
     cout << "packets seq number <= " << slots[min_seq_idx].seq_number << " has all be acked" << endl;
 }
 
+
 bool SenderWindow::checkPacket(char* recvBuf){
     // get all info
-    unsigned_short header_cksum_in = *((short*)((int *)slot_buf + 3));
+    unsigned short header_cksum_in = *((short*)((int *)recvBuf + 3));
 
     // check header
-    unsigned_short header_cksum = cksum(((u_short* )recvBuf), (HEADER_SIZE - CKSUM_SIZE) / 2);
+    unsigned short header_cksum = cksum(((unsigned short* )recvBuf), (HEADER_SIZE - CKSUM_SIZE) / 2);
 
     return (header_cksum_in == header_cksum);
 }

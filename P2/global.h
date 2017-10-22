@@ -14,6 +14,6 @@
 #define  LAST_PACKET_RESENT_TIME 20
 
 enum SlotType {FIRST, NORMAL, LAST};
-enum SlotStatus{EMPTY, LOADED, SENT, WROTEN};
+enum SlotStatus{EMPTY, LOADED, SENT, WROTE};
 enum WindowStatus{WORKING, ENDDING};
 #endif //COMP_556_NETWORK_GLOBAL_H
