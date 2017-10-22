@@ -122,7 +122,6 @@ string getData(char* buffer) {
     string data((char*)res);
     memset(res, 0, len + 1);
     free(res);
-<<<<<<< HEAD
     return data;
 }
 
@@ -134,8 +133,7 @@ string getContentforChecksum(char* buffer) {
     string data((char*)res);
     memset(res, 0, 25 + getDataLength(buffer));
     free(res);
-=======
->>>>>>> 35b70ee5d2e60207637a4edbdac008fd2d6a0ba2
+    cout << "getContentForChecksum = " << data << endl;
     return data;
 }
 
@@ -195,11 +193,6 @@ char* setPacket(int type, int seq_num, int window_size,
     //    memset(checksum, 0, MD5LEN + 1);
     //    cout << "===================" << endl;
     //    printf("Generate checksum based on %d, %s\n", data_length, data.c_str());
-<<<<<<< HEAD
-=======
-    char *checksum = str2md5(data.c_str(), data_length);
-    printf("--->checksum addr：%p\n", checksum);
->>>>>>> 35b70ee5d2e60207637a4edbdac008fd2d6a0ba2
     //    printf("%s\n", checksum);
     *(int*)buffer = (int)htonl(type);
     *(int*)(buffer + 4) = (int)htonl(seq_num);
@@ -214,14 +207,8 @@ char* setPacket(int type, int seq_num, int window_size,
     buffer[24] = '\0';
     strncat(buffer + 24, data.c_str(), data_length);
     buffer[24 + data_length] = '\0';
-<<<<<<< HEAD
     char *checksum = str2md5(getContentforChecksum(buffer).c_str(), data_length + 24);
-=======
->>>>>>> 35b70ee5d2e60207637a4edbdac008fd2d6a0ba2
     strncat(buffer + 24 + data_length, checksum, MD5LEN);
-    printf("--->buffer + 24 + data_length addr：%p\n", buffer + 24 + data_length);
-    cout << "data + checksum: ";
-    printf("%s\n", buffer + 24);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
     buffer[PACKETLEN] = '\0';
@@ -355,12 +342,7 @@ int main (int numArgs, char **args) {
                 memset(ACK, 0, PACKETLEN+1);
                 free(ACK);                   
              } else {
-<<<<<<< HEAD
                 char *received_checksum = str2md5(getContentforChecksum(receivedPacket).c_str(), getDataLength(receivedPacket) + 24);
-=======
-		        char *received_checksum = (char*)malloc(MD5LEN + 1);
-                received_checksum = str2md5(receivedPacket, getDataLength(receivedPacket) + 24);
->>>>>>> 35b70ee5d2e60207637a4edbdac008fd2d6a0ba2
                 printf("New calculated checksum is %s ", received_checksum);
                  cout << "Received checksum is " << getChecksum(receivedPacket) << endl;
 //        		if (strcmp(string(received_checksum), getChecksum(receivedPacket)) != 0) {
@@ -401,11 +383,7 @@ int main (int numArgs, char **args) {
                 free(receivedPacket);
             } else {
 //                unsigned long received_checksum = computeChecksum(getData(receivedPacket));
-<<<<<<< HEAD
                 char *received_checksum = str2md5(getContentforChecksum(receivedPacket).c_str(), getDataLength(receivedPacket) + 24);
-=======
-                char *received_checksum = str2md5(receivedPacket, getDataLength(receivedPacket) + 24);
->>>>>>> 35b70ee5d2e60207637a4edbdac008fd2d6a0ba2
 //                printf("New calculated checksum is %s ", received_checksum);
 //                printf("Received checksum is %s\n", getChecksum(receivedPacket));
 //                if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {

@@ -129,7 +129,7 @@ string getContentforChecksum(char* buffer) {
     string data((char*)res);
     memset(res, 0, 25 + getDataLength(buffer));
     free(res);
-    cout << "getContentforChecksum = " << data;
+    cout << "getContentForChecksum = " << data << endl;
     return data;
 }
 
