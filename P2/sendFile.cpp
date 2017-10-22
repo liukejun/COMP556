@@ -122,19 +122,44 @@ string getData(char* buffer) {
 }
 
 string getContentforChecksum(char* buffer) {
-    char* res = (char*)malloc(25 + getDataLength(buffer));
+    cout << "length: " << getDataLength(buffer) << endl;
+    char* res = (char*)malloc(17 + getDataLength(buffer));
+    memset(res, 0, 17 + getDataLength(buffer));
     res[0] = '\0';
-    strncpy(res, buffer, 24 + getDataLength(buffer));
-    res[24 + getDataLength(buffer)] = '\0';
+    stringstream strs;
+    strs << getType(buffer);
+    strs << getSeqNum(buffer);
+    strs << getWindowSize(buffer);
+    strs << getDataLength(buffer);
+    
+    strcat(res, strs.str().c_str());
+    
+    cout << "without data:";
+    for (int i = 0; i < 16; i++ ) {
+        printf("%x", res[i]);
+    }
+    
+    res[16] = '\0';
+    strcat(res, getData(buffer).c_str());
+//    strncpy(res, buffer, 24 + getDataLength(buffer));
+    res[16 + getDataLength(buffer)] = '\0';
     string data((char*)res);
-    memset(res, 0, 25 + getDataLength(buffer));
-    free(res);
+    printf("buffer: %s", buffer);
+    cout << "data: " << getData(buffer) << endl;
+    printf("res: ");
+    for (int i = 0; i <= 16 + getDataLength(buffer); i++ ) {
+        printf("%x", res[i]);
+    }
+    cout << "\n";
     cout << "getContentForChecksum = " << data << endl;
+    memset(res, 0, 17 + getDataLength(buffer));
+    free(res);
     return data;
 }
 
+
 void clearPacket(char* buffer) {
-    memset (buffer, 0, PACKETLEN);
+    memset (buffer, 0, PACKETLEN + 1);
     free(buffer);
 }
 
@@ -178,10 +203,12 @@ bool isTimeout(int windowStart, vector<char*> my_packets) {
 }
 
 char *str2md5(const char *str, int length) {
+    printf("str2 %s", str);
     int n;
     MD5_CTX c;
     unsigned char digest[16];
     char *out = (char*)malloc(33);
+    memset(out, 0, 33);
     MD5_Init(&c);
     while (length > 0) {
         if (length > 512) {
@@ -225,7 +252,7 @@ char* setPacket(int type, int seq_num, int window_size,
     buffer[24] = '\0';
     strncat(buffer + 24, data.c_str(), data_length);
     buffer[24 + data_length] = '\0';
-    char *checksum = str2md5(getContentforChecksum(buffer).c_str(), data_length + 24);
+    char *checksum = str2md5(getContentforChecksum(buffer).c_str(), data_length + 16);
     strncat(buffer + 24 + data_length, checksum, MD5LEN);
     printf("checksum = %s", buffer + 24 + data_length);
     memset(checksum, 0, MD5LEN + 1);
@@ -425,7 +452,7 @@ int main(int argc, char * const argv[]) {
                 int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
                 windowStart = getSeqNum(receivedPacket) + 1;
                 cout << "Window start move to " << windowStart << endl;
-                if (lastPktSeq == -1) { 
+                if (lastPktSeq == -2) {
                 /* add new pkg into window */
                   cout << "\n\nAdd " << toReadLen << " pkgs to window" << endl;
                   int actualReadLen = 0;
@@ -459,7 +486,9 @@ int main(int argc, char * const argv[]) {
                   int pendingPktmin = my_packets.size() - actualReadLen;
                   for (int k = pendingPktmin; k < my_packets.size(); k++) {
                       sendto(sock, my_packets.at(k), getDataLength(my_packets.at(k)) + 56, 0, (struct sockaddr *)&sin, sizeof sin);
-                      cout << "send new pkg..." << getSeqNum(my_packets.at(k)) << endl;
+                      cout << "!!!!!!!!!!!!!!!!send new pkg..." << getSeqNum(my_packets.at(k)) << endl;
+                      displayContent(my_packets.at(k), true);
+                      cout << "\n\n";
                   }
                 }
             }
