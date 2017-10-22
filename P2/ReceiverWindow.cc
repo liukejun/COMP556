@@ -29,10 +29,12 @@ void ReceiverWindow::receivePacket() {
 
 
     int recv_len = recvfrom(sock, (void *) recvBuf, PACKET_SIZE, 0, (struct sockaddr *)si_other, &addr_len);
+//    int recv_len = recv(sock, (void *) recvBuf, PACKET_SIZE, 0);
     if (recv_len < 0) {
         cout << "receiver recvfrom failed" << endl;
         exit(-1);
     }
+
     if (recv_len < PACKET_SIZE) {
         // just discard it.
         cout << "Trying to receive size of " << PACKET_SIZE << " but got " << recv_len << " instead!" << endl;
@@ -40,10 +42,12 @@ void ReceiverWindow::receivePacket() {
         if (!checkPacket(recvBuf)) {
             cout << "Check failed. Discard" << endl;
         } else {
-            int seq_number_in = ntohl(*(((int *) recvBuf) + 1));
 
+            int seq_number_in = ntohl(*(((int *) recvBuf) + 1));
+            cout << "Got a new valid packet" << seq_number_in<< endl;
             // immediately ack a packet that already been saved into file.
             if (seq_number_in < slots[min_seq_idx].seq_number) {
+                cout << seq_number_in << "< " << slots[min_seq_idx].seq_number << ". an ack is sent right away" << endl;
                 sendAck(seq_number_in);
                 return;
             }
@@ -57,11 +61,13 @@ void ReceiverWindow::receivePacket() {
 
 void ReceiverWindow::savePacketToSlot(int seq_number_in) {
     int s_i = getSlotIdx(seq_number_in);
+    cout << "getSlotIdx seq_number_in: " << seq_number_in << " s_i: " << s_i  <<endl;
     if (s_i == -1) {
         cout << "could not find the idx" << endl;
         return;
     }
-    Slot cur_slot = slots[s_i];
+    Slot& cur_slot = slots[s_i];
+
     // memcpy( void* dest, const void* src, std::size_t count );
     memcpy(cur_slot.slot_buf, recvBuf, PACKET_SIZE);
     cur_slot.slot_status = LOADED;
@@ -70,27 +76,29 @@ void ReceiverWindow::savePacketToSlot(int seq_number_in) {
 
 void ReceiverWindow::writeFile() {
     int last_seq = -1;
+//    cout << "min_seq_idx: " << min_seq_idx << endl;
+//    cout << "is_complete: " << is_complete << endl;
+//
     for (int s_i = min_seq_idx, count = 0; count < window_size && (!is_complete) && slots[s_i].slot_status == LOADED;
          count++, s_i = (s_i + 1) % window_size) {
 
-        Slot cur_slot = slots[s_i];
+        Slot& cur_slot = slots[s_i];
 
         // write in to file
         char data_type = *((char *) recvBuf);
         short data_size = *((short *)(recvBuf + 1));
+        cout << "data_type: " << data_type << "data_size: " << data_size << endl;
         if (data_type == 0) {// file name packet
             createFile(s_i);
             int ackNumber = ntohl(*(((int*)cur_slot.slot_buf) + 2));
             sendAck(ackNumber);
-        } else if (file_path_name != nullptr){
+        } else{
             out_file.write(cur_slot.slot_buf + HEADER_SIZE, data_size);
             out_file.flush();
             if (data_type == 2) // last packet
             {
                 is_complete = true;
             }
-        } else{
-            return; // something is wrong
         }
         cur_slot.slot_status = EMPTY;
         last_seq = cur_slot.seq_number;
@@ -103,9 +111,9 @@ void ReceiverWindow::writeFile() {
 
 
 void ReceiverWindow::createFile(int s_i) {
-    Slot slot = slots[s_i];
+    Slot& slot = slots[s_i];
     short data_length = *((char *) recvBuf + 1);
-    string file_path_name_s = *((string*) (slot.slot_buf + HEADER_SIZE));
+    string file_path_name_s (slot.slot_buf + HEADER_SIZE, data_length);
 //    memcpy(file_path_name, slot.slot_buf + HEADER_SIZE, data_length);
 
     // get path and file name
@@ -125,6 +133,7 @@ void ReceiverWindow::createFile(int s_i) {
         cout << "could not open new file" << endl;
         exit(-1);
     }
+    cout << "created file " << path << " "<< name <<endl;
 }
 
 
@@ -140,6 +149,7 @@ int ReceiverWindow::getSlotIdx(int seq_number_in) {
 
 
 void ReceiverWindow::sendAck(int seq_number_in) {
+    cout << "sedning ack for " << seq_number_in << endl;
     // make ack msg
     makeAck(seq_number_in);
     //send out ack msg
@@ -154,15 +164,16 @@ void ReceiverWindow::makeAck(int ackNum) {
 
 
 bool ReceiverWindow::checkPacket(char *recvBuf) {
-    // get all info
-    unsigned short header_cksum_in = *((short *) ((int *) recvBuf + 4));
-    unsigned short data_cksum_in = *(((short *) recvBuf + 9));
-
-    // check header
-    unsigned short header_cksum = cksum(((u_short *) recvBuf), (HEADER_SIZE - CKSUM_SIZE) / 2);
-
-    // check data
-    unsigned short data_cksum = cksum((u_short *)((int *) recvBuf + 5), (PACKET_SIZE - HEADER_SIZE) / 2);
-
-    return (header_cksum_in == header_cksum) && (data_cksum_in == data_cksum);
+    return true;
+//    // get all info
+//    unsigned short header_cksum_in = *((short *) ((int *) recvBuf + 4));
+//    unsigned short data_cksum_in = *(((short *) recvBuf + 9));
+//
+//    // check header
+//    unsigned short header_cksum = cksum(((u_short *) recvBuf), (HEADER_SIZE - CKSUM_SIZE) / 2);
+//
+//    // check data
+//    unsigned short data_cksum = cksum((u_short *)((int *) recvBuf + 5), (PACKET_SIZE - HEADER_SIZE) / 2);
+//
+//    return (header_cksum_in == header_cksum) && (data_cksum_in == data_cksum);
 }

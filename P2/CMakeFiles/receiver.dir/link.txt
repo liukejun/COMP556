@@ -1,1 +1,1 @@
-/Library/Developer/CommandLineTools/usr/bin/c++   -Wall -std=c++11 -Wl,-search_paths_first -Wl,-headerpad_max_install_names  CMakeFiles/receiver.dir/recvFile.cpp.o  -o receiver libbaselib.a 
+/Library/Developer/CommandLineTools/usr/bin/c++   -Wall -std=c++11 -g -Wall -std=c++11 -O0 -g -Wl,-search_paths_first -Wl,-headerpad_max_install_names  CMakeFiles/receiver.dir/recvFile.cpp.o  -o receiver libbaselib.a 

@@ -32,7 +32,11 @@ vector <string> split(const string &s, char delim) {
 
 int main(int argc, char *const argv[]) {
     // deal with input
-    if (argc != 5) {
+    if (argc < 5) {
+        cout << argc<<endl;
+        for(int i = 0; i < argc; i++){
+            cout<<i  << " : " << argv[i] << endl;
+        }
         cout << "Please provide comprehensive information\n";
         return 0;
     }
@@ -55,6 +59,8 @@ int main(int argc, char *const argv[]) {
             exit(EXIT_FAILURE);
         }
     }
+
+    cout << "Welcome" <<endl;
 
     /* our client socket */
     int sock;
@@ -111,8 +117,8 @@ int main(int argc, char *const argv[]) {
 
         if (select_retval > 0) // We get an ack or an packet to send
         {
-            senderWindow.recievePacket();
             senderWindow.sendPendingPackets();
+            senderWindow.recievePacket();
         }
     }
 
