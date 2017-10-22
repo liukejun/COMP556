@@ -39,6 +39,7 @@
 #define BUFLEN 5000  //Max length of buffer
 #define PACKETLEN 1056  //Max length of buffer
 #define MD5LEN 32
+#define DATALEN 1000
 
 using namespace std;
 
@@ -97,8 +98,7 @@ int getDataLength(char* buffer) {
 
 string getChecksum(char* buff) {
 //    printf("%s", MD5LEN, buff + 24);
-    int len = getDataLength(buff);
-    string data((char*)(buff + 24 + len));
+    string data((char*)(buff + 24 + DATALEN));
     return data;
 }
 
@@ -251,10 +251,10 @@ char* setPacket(int type, int seq_num, int window_size,
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
     buffer[24] = '\0';
     strncat(buffer + 24, data.c_str(), data_length);
-    buffer[24 + data_length] = '\0';
+    buffer[24 + DATALEN] = '\0';
     char *checksum = str2md5(getContentforChecksum(buffer).c_str(), data_length + 16);
-    strncat(buffer + 24 + data_length, checksum, MD5LEN);
-//    printf("checksum = %s", buffer + 24 + data_length);
+    strncat(buffer + 24 + DATALEN, checksum, MD5LEN);
+    printf("checksum = %s", buffer + 24 + DATALEN);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
     buffer[PACKETLEN] = '\0';
@@ -283,7 +283,7 @@ void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin
             }
         }
         setTimestamp(my_packets.at(0));
-        sendto(sock, my_packets.at(0), getDataLength(my_packets.at(0)) + 56, 0, (struct sockaddr *)&sin, sizeof sin);
+        sendto(sock, my_packets.at(0), PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
         cout << "\n\n Resend...";
 //        printf("checksum = %s", getChecksum(my_packets.at(0)));
     }
@@ -381,7 +381,7 @@ int main(int argc, char * const argv[]) {
     char* packet = setPacket(0, windowStart, windowSize, length, pathName);
     my_packets.push_back(packet);
     displayContent(packet,true);
-    sendto(sock, packet, getDataLength(packet) + 56, 0, (struct sockaddr *)&sin, sizeof sin);
+    sendto(sock, packet, PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
     
     //open the file
     std::fstream file;
@@ -485,7 +485,7 @@ int main(int argc, char * const argv[]) {
                 // }
                   int pendingPktmin = my_packets.size() - actualReadLen;
                   for (int k = pendingPktmin; k < my_packets.size(); k++) {
-                      sendto(sock, my_packets.at(k), getDataLength(my_packets.at(k)) + 56, 0, (struct sockaddr *)&sin, sizeof sin);
+                      sendto(sock, my_packets.at(k), PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
                       cout << "!!!!!!!!!!!!!!!!send new pkg..." << getSeqNum(my_packets.at(k)) << endl;
 //                      displayContent(my_packets.at(k), true);
 //                      cout << "\n\n";
