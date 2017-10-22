@@ -1,1 +1,0 @@
-/Library/Developer/CommandLineTools/usr/bin/c++   -Wall -std=c++11 -g -Wall -std=c++11 -O0 -g -Wl,-search_paths_first -Wl,-headerpad_max_install_names  CMakeFiles/sender.dir/sendFile.cpp.o  -o sender libbaselib.a 
