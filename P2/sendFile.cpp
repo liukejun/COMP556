@@ -223,8 +223,6 @@ char* setPacket(int type, int seq_num, int window_size,
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
     buffer[24] = '\0';
-    string content = "" + type + seq_num + window_size + data_length + data;
-    cout << "content: " << content << endl;
     strncat(buffer + 24, data.c_str(), data_length);
     buffer[24 + data_length] = '\0';
     char *checksum = str2md5(getContentforChecksum(buffer).c_str(), data_length + 24);
