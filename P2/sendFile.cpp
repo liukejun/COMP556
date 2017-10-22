@@ -97,13 +97,8 @@ int getDataLength(char* buffer) {
 
 string getChecksum(char* buff) {
 //    printf("%s", MD5LEN, buff + 24);
-    char* res = (char*)malloc(MD5LEN + 1);
-    res[0] = '\0';
-    strncpy(res, buff + 24, MD5LEN);
-    res[32] = '\0';
-    string data((char*)res);
-    memset(res, 0, MD5LEN + 1);
-    free(res);
+    int len = getDataLength(buff);
+    string data((char*)(buff + 24 + len));
     return data;
 }
 
@@ -115,7 +110,14 @@ struct timeval getTimeStamp(char* buffer) {
 }
 
 string getData(char* buffer) {
-    string data((char*)(buffer + 56));
+    int len = getDataLength(buffer);
+    char* res = (char*)malloc(len + 1);
+    res[0] = '\0';
+    strncpy(res, buffer + 24, len);
+    res[len] = '\0';
+    string data((char*)res);
+    memset(res, 0, len + 1);
+    free(res);
     return data;
 }
 
@@ -163,31 +165,6 @@ bool isTimeout(int windowStart, vector<char*> my_packets) {
     return false;
 }
 
-int
-output(char *p, unsigned char* pwd, int len)
-{
-    int i;
-    printf("%s",p);
-    for(i=0;i<len;i++)
-    {
-        printf("%x",pwd[i]);
-    }
-    printf("\n");
-    return 0;
-}
-
-char* uncharToChar(unsigned char ar1[], int hm)
-{
-    char res[hm];
-    for(int i=0; i<hm; i++)
-    {
-        res[i]=static_cast<char>(ar1[i]);
-        printf("cast %x to %x\n", ar1[i], res[i]);
-    }
-    cout << "\n";
-    return res;
-}
-
 char *str2md5(const char *str, int length) {
     int n;
     MD5_CTX c;
@@ -217,7 +194,7 @@ char* setPacket(int type, int seq_num, int window_size,
                int data_length, string data) {
     char * buffer;
     buffer = (char *) malloc(PACKETLEN + 1);
-    memset(buffer, 0, PACKETLEN);
+    memset(buffer, 0, PACKETLEN + 1);
 //    char *checksum = (char*)malloc(MD5LEN + 1);
 //    memset(checksum, 0, MD5LEN + 1);
 //    cout << "===================" << endl;
@@ -236,14 +213,14 @@ char* setPacket(int type, int seq_num, int window_size,
     *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
     buffer[24] = '\0';
-    strncat(buffer + 24, checksum, MD5LEN);
-    printf("--->buffer + 24 addr：%p\n", buffer + 24);
-    cout << "after set checksum ";
-    printf("%s\n", buffer + 24, MD5LEN);
+    strncat(buffer + 24, data.c_str(), data_length);
+    buffer[24 + data_length] = '\0';
+    strncat(buffer + 24 + data_length, checksum, MD5LEN);
+    printf("--->buffer + 24 + data_length addr：%p\n", buffer + 24 + data_length);
+    cout << "data + checksum: ";
+    printf("%s\n", buffer + 24);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
-    buffer[56] = '\0';
-    strncat(buffer + 56, data.c_str(), data_length);
     buffer[PACKETLEN] = '\0';
 //    printf("Content after buffer + 56 is %s\n", buffer+56);
 //    cout << "all set" << endl;
@@ -361,7 +338,7 @@ int main(int argc, char * const argv[]) {
     timeout.tv_sec = 0;
     timeout.tv_usec = 100000;
     lastPktRetry = 0;
-    int lastPktSeq = -1;
+    int lastPktSeq = -2;
     
     string pathName = path + " " + fileName;
     int length = (int)pathName.length();
