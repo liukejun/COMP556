@@ -122,7 +122,7 @@ string getData(char* buffer) {
 }
 
 string getContentforChecksum(char* buffer) {
-    cout << "length: " << getDataLength(buffer) << endl;
+//    cout << "length: " << getDataLength(buffer) << endl;
     char* res = (char*)malloc(17 + getDataLength(buffer));
     memset(res, 0, 17 + getDataLength(buffer));
     res[0] = '\0';
@@ -134,24 +134,24 @@ string getContentforChecksum(char* buffer) {
     
     strcat(res, strs.str().c_str());
     
-    cout << "without data:";
-    for (int i = 0; i < 16; i++ ) {
-        printf("%x", res[i]);
-    }
+//    cout << "without data:";
+//    for (int i = 0; i < 16; i++ ) {
+//        printf("%x", res[i]);
+//    }
     
     res[16] = '\0';
     strcat(res, getData(buffer).c_str());
 //    strncpy(res, buffer, 24 + getDataLength(buffer));
     res[16 + getDataLength(buffer)] = '\0';
     string data((char*)res);
-    printf("buffer: %s", buffer);
-    cout << "data: " << getData(buffer) << endl;
-    printf("res: ");
-    for (int i = 0; i <= 16 + getDataLength(buffer); i++ ) {
-        printf("%x", res[i]);
-    }
-    cout << "\n";
-    cout << "getContentForChecksum = " << data << endl;
+//    printf("buffer: %s", buffer);
+//    cout << "data: " << getData(buffer) << endl;
+//    printf("res: ");
+//    for (int i = 0; i <= 16 + getDataLength(buffer); i++ ) {
+//        printf("%x", res[i]);
+//    }
+//    cout << "\n";
+//    cout << "getContentForChecksum = " << data << endl;
     memset(res, 0, 17 + getDataLength(buffer));
     free(res);
     return data;
@@ -203,7 +203,7 @@ bool isTimeout(int windowStart, vector<char*> my_packets) {
 }
 
 char *str2md5(const char *str, int length) {
-    printf("str2 %s", str);
+//    printf("str2 %s", str);
     int n;
     MD5_CTX c;
     unsigned char digest[16];
@@ -225,7 +225,7 @@ char *str2md5(const char *str, int length) {
     for (n = 0; n < 16; ++n) {
         snprintf(&(out[n*2]), 16*3, "%02x", (unsigned int)digest[n]);
     }
-    printf("--->str2 return addr：%p\n", out);
+//    printf("--->str2 return addr：%p\n", out);
     return out;
 }
 
@@ -254,7 +254,7 @@ char* setPacket(int type, int seq_num, int window_size,
     buffer[24 + data_length] = '\0';
     char *checksum = str2md5(getContentforChecksum(buffer).c_str(), data_length + 16);
     strncat(buffer + 24 + data_length, checksum, MD5LEN);
-    printf("checksum = %s", buffer + 24 + data_length);
+//    printf("checksum = %s", buffer + 24 + data_length);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
     buffer[PACKETLEN] = '\0';
@@ -437,18 +437,18 @@ int main(int argc, char * const argv[]) {
                 /* move window */
                 // delete
                 cout << "\n\nDelete pkg" << endl;
-                cout << "\n\nData in vector ===============before delete" << endl;
-                 for (int i = 0; i < my_packets.size(); i++) {
-                     displayContent(my_packets.at(i), false);
-                 }
+//                cout << "\n\nData in vector ===============before delete" << endl;
+//                 for (int i = 0; i < my_packets.size(); i++) {
+//                     displayContent(my_packets.at(i), false);
+//                 }
                 for (int i = 0; i < getSeqNum(receivedPacket) - windowStart + 1; i++) {
                     clearPacket(my_packets.at(i));
                 }
                 my_packets.erase (my_packets.begin(), my_packets.begin() + getSeqNum(receivedPacket) - windowStart + 1);
-                cout << "\n\nData in vector ===============after delete" << endl;
-                 for (int i = 0; i < my_packets.size(); i++) {
-                     displayContent(my_packets.at(i), false);
-                 }
+//                cout << "\n\nData in vector ===============after delete" << endl;
+//                 for (int i = 0; i < my_packets.size(); i++) {
+//                     displayContent(my_packets.at(i), false);
+//                 }
                 int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
                 windowStart = getSeqNum(receivedPacket) + 1;
                 cout << "Window start move to " << windowStart << endl;
@@ -461,7 +461,7 @@ int main(int argc, char * const argv[]) {
                     /* create toReadLen packets and push them to vector mypackets*/
 		              memset(data, 0, 1000+1);
                       file.read(data, 1000);
-                      printf("--->file data addr：%p\n", data);
+//                      printf("--->file data addr：%p\n", data);
 		              data[1000] = '\0';
                     // cout << "data(" << actualReadLen << ")= " << data << endl;
                       if(file.eof()){
@@ -479,7 +479,7 @@ int main(int argc, char * const argv[]) {
                       setTimestamp(my_packets.back());
                   }
                 /* send new pkg */
-                  cout << "\n\n----" << windowSize << "----" << actualReadLen << endl;
+//                  cout << "\n\n----" << windowSize << "----" << actualReadLen << endl;
                 // for (int i = 0; i < my_packets.size(); i++) {
                 //     my_packets.at(i).displayContent();
                 // }
@@ -487,8 +487,8 @@ int main(int argc, char * const argv[]) {
                   for (int k = pendingPktmin; k < my_packets.size(); k++) {
                       sendto(sock, my_packets.at(k), getDataLength(my_packets.at(k)) + 56, 0, (struct sockaddr *)&sin, sizeof sin);
                       cout << "!!!!!!!!!!!!!!!!send new pkg..." << getSeqNum(my_packets.at(k)) << endl;
-                      displayContent(my_packets.at(k), true);
-                      cout << "\n\n";
+//                      displayContent(my_packets.at(k), true);
+//                      cout << "\n\n";
                   }
                 }
             }
