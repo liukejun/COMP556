@@ -126,16 +126,6 @@ string getData(char* buffer) {
     return data;
 }
 
-//string getContentforChecksum(char* buffer) {
-//    stringstream strs;
-//    strs << getType(buffer);
-//    strs << getSeqNum(buffer);
-//    strs << getWindowSize(buffer);
-//    strs << getDataLength(buffer);  
-//    cout << "\n\nContent of Checksum " << strs.str() << endl;
-//    return strs.str();
-//}
-
 int getContentLength(char* buffer) {
     stringstream strs;
     strs << getType(buffer);
@@ -321,7 +311,7 @@ void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin
     }
 }
 
-char* receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) {
+void receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) {
     int recv_len;
     socklen_t addr_len = sizeof(struct sockaddr_in);
     if ((recv_len = recvfrom(sock, intoMe, BUFLEN, 0, (struct sockaddr *) &sin_other, &addr_len)) == -1)
@@ -333,7 +323,6 @@ char* receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) 
         cout << "[completed]" << endl;
         exit(0);
     }
-    return intoMe;
 }
 
 
@@ -423,7 +412,7 @@ int main(int argc, char * const argv[]) {
         std::cout<<"Err:cannot open the input file"<<std::endl;
         exit(-1);
     }
-
+    char *receivedPacket = (char *)malloc(PACKETLEN + 1);
     // read file to data
     char *data = (char *)malloc(1000+1);
     fd_set read_set, write_set;
@@ -458,25 +447,17 @@ int main(int argc, char * const argv[]) {
                  
         if(FD_ISSET(sock, &read_set)){
               /* recv ack */
-            char *buf = (char *)malloc(PACKETLEN + 1);
-            printf("buf addr %p\n", buf);
-            char* receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
-            printf("receivedPacket addr %p\n", buf);
-            displayContent(receivedPacket, true);
+            memset(receivedPacket, 0, PACKETLEN + 1);
+            receiveACK(sock, receivedPacket, sin_other, lastPktSeq);
             gettimeofday(&lastACKtv, NULL);
-            cout << "getContentforChecksum" << endl;
             string testChecksum = getContentforChecksum(receivedPacket);
             int testLength = testChecksum.length();
-            cout << "test length = " << testChecksum.length();
-            cout << "str2md5..." << endl;
-            char* received_checksum = str2md5(testChecksum.c_str(), testLength);
+                char* received_checksum = str2md5(testChecksum.c_str(), testLength);
             cout << "compare..." << endl;
             if (strcmp(received_checksum, getChecksum(receivedPacket).c_str()) != 0) {
                 cout << "checksum not same!" << endl;
                 memset(received_checksum, 0, MD5LEN + 1);
                 free(received_checksum);
-                memset(receivedPacket, 0, PACKETLEN + 1);
-                free(receivedPacket);
                 continue;
             }
             memset(received_checksum, 0, MD5LEN + 1);
@@ -487,8 +468,6 @@ int main(int argc, char * const argv[]) {
 //            cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
             if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) > windowEnd) {
 //                cout << "ACK out of window [" << windowStart << ", " << windowEnd << "]" << endl;
-                memset(receivedPacket, 0, PACKETLEN + 1);
-                free(receivedPacket);
             } else {
                 /* move window */
                 for (int i = 0; i < getSeqNum(receivedPacket) - windowStart + 1; i++) {
@@ -501,8 +480,6 @@ int main(int argc, char * const argv[]) {
 //                 }
                 int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
                 windowStart = getSeqNum(receivedPacket) + 1;
-                memset(receivedPacket, 0, PACKETLEN + 1);
-                free(receivedPacket);
 //                cout << "Window start move to " << windowStart << endl;
                 if (lastPktSeq == -2) {
                 /* add new pkg into window */
