@@ -363,7 +363,8 @@ int main (int numArgs, char **args) {
                         sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);
                         memset(ACK, 0, PACKETLEN+1);
                         free(ACK);    
-                        clearPacket(my_packets.begin());
+                        char* cur = *my_packets.begin();
+                        clearPacket(cur);
                         my_packets.erase(my_packets.begin());
                         lastACKnum = getSeqNum(receivedPacket);
                         windowStart ++;
