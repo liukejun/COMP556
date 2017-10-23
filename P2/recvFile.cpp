@@ -285,7 +285,7 @@ int main (int numArgs, char **args) {
         }
 
         cout<<endl;   
-        cout << "#####Recv packet content########" << " seq_num= " << getSeqNum(receivedPacket) << endl;
+        cout << "#####Recv Packet Sequence No."  << getSeqNum(receivedPacket) << " #####" << endl;
         
         /* check whether received packet is in window([windowStart,windowStart+windowSize-1])
          if in window, check whether checksum is the same,
