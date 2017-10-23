@@ -328,7 +328,7 @@ char* receiveACK(int sock, char *intoMe, sockaddr_in sin_other, int lastPktSeq) 
     {
         perror("recvfrom()");
     }
-    cout << "######Rsend ACK No." << getSeqNum(intoMe) << "#######" <<endl;
+    cout << "######Receive ACK No." << getSeqNum(intoMe) << "#######" <<endl;
     if (getSeqNum(intoMe) == lastPktSeq) {
         cout << "[completed]" << endl;
         exit(0);
@@ -463,7 +463,20 @@ int main(int argc, char * const argv[]) {
               /* recv ack */
             char* receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
             gettimeofday(&lastACKtv, NULL);
-            //displayContent(receivedPacket, false);
+            string testChecksum = getContentforChecksum(receivedPacket);
+            int testLength = testChecksum.length();
+            char* received_checksum = str2md5(testChecksum.c_str(), testLength);
+            if (strcmp(received_checksum, getChecksum(receivedPacket).c_str()) != 0) {
+                cout << "checksum not same!" << endl;
+                memset(received_checksum, 0, MD5LEN + 1);
+                free(received_checksum);
+                memset(receivedPacket, 0, PACKETLEN + 1);
+                free(receivedPacket);
+                continue;
+            }
+            memset(received_checksum, 0, MD5LEN + 1);
+            free(received_checksum);
+            cout << "checksum is the same!" << endl;
             /* check if ack out-of-window [windowStart, my_packets.size + windowStart - 1]*/
             int windowEnd = my_packets.size() + windowStart - 1;
 //            cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
