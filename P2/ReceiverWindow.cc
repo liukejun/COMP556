@@ -37,8 +37,7 @@ void ReceiverWindow::receivePacket() {
         if (!checkPacket(recvBuf)) {
             cout << "Check failed. Discard" << endl;
         } else {
-
-            int seq_number_in = ntohl(*(((int *) recvBuf) + 1));
+            int seq_number_in = ntohl(* (int*)((((int *) recvBuf) + 1)));
             cout << "Got a new valid packet " << seq_number_in<< endl;
             // immediately ack a packet that already been saved into file.
             if (seq_number_in < slots[min_seq_idx].seq_number) {
@@ -75,7 +74,8 @@ void ReceiverWindow::writeFile() {
 //    cout << "min_seq_idx: " << min_seq_idx << endl;
 //    cout << "is_complete: " << is_complete << endl;
 //
-    for (int s_i = min_seq_idx, count = 0; count < window_size && (!is_complete) && slots[s_i].slot_status == LOADED;
+    int s_i = min_seq_idx;
+    for (int count = 0; count < window_size && (!is_complete) && slots[s_i].slot_status == LOADED;
          count++, s_i = (s_i + 1) % window_size) {
 
         Slot& cur_slot = slots[s_i];
@@ -86,8 +86,8 @@ void ReceiverWindow::writeFile() {
         cout << "data_type: " << data_type << "data_size: " << data_size << endl;
         if (data_type == '0') {// file name packet
             createFile(s_i);
-            int ackNumber = ntohl(*(((int*)cur_slot.slot_buf) + 2));
-            sendAck(ackNumber);
+//            int ackNumber = ntohl(*(((int*)cur_slot.slot_buf) + 2));
+            sendAck(0);
         } else if (!file_name.empty()){
             out_file.write(cur_slot.slot_buf + HEADER_SIZE, data_size);
             out_file.flush();
@@ -98,13 +98,14 @@ void ReceiverWindow::writeFile() {
         } else{
             return;
         }
+        last_seq = cur_slot.seq_number;
         updateSeqNumber(&cur_slot);
         cur_slot.slot_status = EMPTY;
-        last_seq = cur_slot.seq_number;
     }
 
-    if (last_seq > 0) {
+    if (last_seq >= 0) {
         sendAck(last_seq);
+        min_seq_idx = s_i;
     }
 }
 
@@ -144,6 +145,11 @@ int ReceiverWindow::getSlotIdx(int seq_number_in) {
             return s_i;
         }
     }
+    cout<<"can not find the corresponding slot index of seq" << seq_number_in <<endl;
+    cout << "current valus are: " << endl;
+    for (int s_i = min_seq_idx, count = 0; count < window_size; count++, s_i = (s_i + 1) % window_size) {
+        cout<<"[" << s_i << "]" << " "<< slots[s_i].seq_number << " status: " <<slots[s_i].slot_status << endl;
+    }
     return -1;
 }
 
@@ -158,8 +164,9 @@ void ReceiverWindow::sendAck(int seq_number_in) {
 
 
 void ReceiverWindow::makeAck(int ackNum) {
-    *((char *) ack_buf + 1) = htons(MIN_PACKET_SIZE - HEADER_SIZE);
-    *((int *) ack_buf + 3) = htonl(ackNum);
+    *((short*)((char *) ack_buf + 1)) = htons(MIN_PACKET_SIZE - HEADER_SIZE);
+    *((int*) ((int *) ack_buf) + 1) = htonl(ackNum);
+    *((int*) ((int *) ack_buf) + 2) = htonl(ackNum);
 }
 
 
