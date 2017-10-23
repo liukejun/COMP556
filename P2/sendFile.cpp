@@ -276,16 +276,24 @@ char* setPacket(int type, int seq_num, int window_size,
 }
 
 
-void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin, int sock) {
+void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin, int sock, struct timeval lastACKtv) {
     // for the last packet, resend 10 times maximum
     if (isTimeout(windowStart, my_packets)) {
+        struct timeval currenttv, restv;
+        gettimeofday(&currenttv, NULL);
+        timersub(&currenttv, &lastACKtv, &restv);
+        if (restv.tv_sec > 10) {
+            // Receiver hasn't sent any reply in 10 seconds, it might be down
+            cout << "Haven't received any reply from receiver in 10 seconds. Receiver might be off...program exits now" << endl;
+            exit(0);
+        }
         if (getType(my_packets.at(0)) == 3) {
             // This is the last packet
             if (lastPktRetry <= 100) {
                 lastPktRetry++;
             } else {
-                cout << "The last packet has been resent for 10 times. Give up retrying...program exists now" << endl;
-                exit(1);
+                cout << "The last packet has been resent for 10 times. Give up retrying...program exits now" << endl;
+                exit(0);
             }
         }
         setTimestamp(my_packets.at(0));
@@ -381,6 +389,8 @@ int main(int argc, char * const argv[]) {
     timeout.tv_usec = 100000;
     lastPktRetry = 0;
     int lastPktSeq = -2;
+    struct timeval lastACKtv;
+    gettimeofday(&lastACKtv, NULL); //initialize
     
     string pathName = path + " " + fileName;
     int length = (int)pathName.length();
@@ -389,9 +399,11 @@ int main(int argc, char * const argv[]) {
     displayContent(packet,true);
     sendto(sock, packet, PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
     
+    
     //open the file
     std::fstream file;
-    file.open("example.txt",std::ifstream::in);
+    string toReadFile = "./" + path + fileName;
+    file.open(toReadFile.c_str(), std::ifstream::in);
     if(!file.is_open()){
         //if fail to open the file, exit
         std::cout<<"Err:cannot open the input file"<<std::endl;
@@ -428,11 +440,12 @@ int main(int argc, char * const argv[]) {
         }
         
         /* check timeout of first pkg in window, resend if timeout */
-        handleTimeoutPkt(windowStart, my_packets, sin, sock);
+        handleTimeoutPkt(windowStart, my_packets, sin, sock, lastACKtv);
                  
         if(FD_ISSET(sock, &read_set)){
               /* recv ack */
             char* receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
+            gettimeofday(&lastACKtv, NULL);
             displayContent(receivedPacket, false);
             /* check if ack out-of-window [windowStart, my_packets.size + windowStart - 1]*/
             int windowEnd = my_packets.size() + windowStart - 1;
