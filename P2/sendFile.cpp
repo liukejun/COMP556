@@ -287,6 +287,8 @@ char* setPacket(int type, int seq_num, int window_size,
 void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin, int sock, struct timeval lastACKtv) {
     // for the last packet, resend 10 times maximum
     if (isTimeout(windowStart, my_packets)) {
+        cout << "--------------Window Start is --------------"<< windowStart << endl;
+        cout << "First element in vector is " << getSeqNum(my_packets.at(0)) << endl;
         struct timeval currenttv, restv;
         gettimeofday(&currenttv, NULL);
         timersub(&currenttv, &lastACKtv, &restv);
@@ -308,7 +310,7 @@ void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin
         }
         setTimestamp(my_packets.at(0));
         sendto(sock, my_packets.at(0), PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
-        cout << "######Rsend Packet Sequence No." << getSeqNum(my_packets.at(0)) << "#######" <<endl;
+        cout << "######Resend Packet Sequence No." << getSeqNum(my_packets.at(0)) << "#######" <<endl;
         int offset = getOffset(my_packets.at(0));
         if (offset == -1) {
             cout << "[send data] File name and directory" << endl;
@@ -396,10 +398,10 @@ int main(int argc, char * const argv[]) {
     sin.sin_port = htons(server_port);
     
     vector<char*> my_packets;
-    int windowSize = 3;
+    int windowSize = 100;
     int windowStart = 0;
     timeout.tv_sec = 0;
-    timeout.tv_usec = 100000;
+    timeout.tv_usec = 12000;
     lastPktRetry = 0;
     int lastPktSeq = -2;
     struct timeval lastACKtv;
