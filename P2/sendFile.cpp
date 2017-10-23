@@ -37,7 +37,7 @@
 //#endif
 
 #define BUFLEN 5000  //Max length of buffer
-#define PACKETLEN 1056  //Max length of buffer
+#define PACKETLEN 1060  //Max length of buffer
 #define MD5LEN 32
 #define DATALEN 1000
 
@@ -91,21 +91,26 @@ int getDataLength(char* buffer) {
     return data_length;
 }
 
+int getOffset(char* buffer) {
+    int offset = (int) ntohl(*(int*)(buffer + 16));
+    return offset;
+}
+
 //unsigned long getChecksum(char* buffer) {
 //    unsigned long checksum = (unsigned long) be64toh(*(unsigned long*)(buffer + 24));
 //    return checksum;
 //}
 
 string getChecksum(char* buff) {
-//    printf("%s", MD5LEN, buff + 24);
-    string data((char*)(buff + 24 + DATALEN));
+//    printf("%s", MD5LEN, buff + 28);
+    string data((char*)(buff + 28 + DATALEN));
     return data;
 }
 
 struct timeval getTimeStamp(char* buffer) {
     struct timeval time;
-    time.tv_sec = (long) ntohl(*(long*)(buffer + 16));
-    time.tv_usec = (int) ntohl(*(int*)(buffer + 20));
+    time.tv_sec = (long) ntohl(*(long*)(buffer + 20));
+    time.tv_usec = (int) ntohl(*(int*)(buffer + 24));
     return time;
 }
 
@@ -113,7 +118,7 @@ string getData(char* buffer) {
     int len = getDataLength(buffer);
     char* res = (char*)malloc(len + 1);
     res[0] = '\0';
-    strncpy(res, buffer + 24, len);
+    strncpy(res, buffer + 28, len);
     res[len] = '\0';
     string data((char*)res);
     memset(res, 0, len + 1);
@@ -138,6 +143,7 @@ int getContentLength(char* buffer) {
     strs << getSeqNum(buffer);
     strs << getWindowSize(buffer);
     strs << getDataLength(buffer);
+    strs << getOffset(buffer);
     cout << "\n\nContent of Checksum is" << strs.str() << endl;
     return strs.str().length();
 }
@@ -152,6 +158,7 @@ string getContentforChecksum(char* buffer) {
     strs << getSeqNum(buffer);
     strs << getWindowSize(buffer);
     strs << getDataLength(buffer);
+    strs << getOffset(buffer);
     strcat(res, strs.str().c_str());
     res[headerlength] = '\0';
     strcat(res, getData(buffer).c_str());
@@ -172,8 +179,8 @@ void setTimestamp(char* buffer) {
     if (gettimeofday(&time, NULL) == -1) {
         printf("Fail to get time.\n");
     }
-    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
-    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
+    *(long *) (buffer + 20) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 24) = (int) htonl(time.tv_usec);
 }
 
 void displayContent(char* pkt, bool data) {
@@ -234,7 +241,7 @@ char *str2md5(const char *str, int length) {
 }
 
 char* setPacket(int type, int seq_num, int window_size, 
-               int data_length, string data) {
+               int data_length, string data, int offset) {
     char * buffer;
     buffer = (char *) malloc(PACKETLEN + 1);
     memset(buffer, 0, PACKETLEN + 1);
@@ -251,16 +258,17 @@ char* setPacket(int type, int seq_num, int window_size,
     if (gettimeofday(&time, NULL) == -1) {
         printf("Fail to get time.\n");
     }
-    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
-    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
-    buffer[24] = '\0';
-    strncat(buffer + 24, data.c_str(), data_length);
-    buffer[24 + DATALEN] = '\0';
+    *(int*)(buffer + 16) = (int)htonl(offset);
+    *(long *) (buffer + 20) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 24) = (int) htonl(time.tv_usec);
+    buffer[28] = '\0';
+    strncat(buffer + 28, data.c_str(), data_length);
+    buffer[28 + DATALEN] = '\0';
     string contentOfChecksum = getContentforChecksum(buffer);
     int contentLength = contentOfChecksum.length();
     char *checksum = str2md5(contentOfChecksum.c_str(), contentLength);
-    strncat(buffer + 24 + DATALEN, checksum, MD5LEN);
-    printf("checksum = %s", buffer + 24 + DATALEN);
+    strncat(buffer + 28 + DATALEN, checksum, MD5LEN);
+    printf("checksum = %s", buffer + 28 + DATALEN);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
     buffer[PACKETLEN] = '\0';
@@ -394,7 +402,7 @@ int main(int argc, char * const argv[]) {
     
     string pathName = path + " " + fileName;
     int length = (int)pathName.length();
-    char* packet = setPacket(0, windowStart, windowSize, length, pathName);
+    char* packet = setPacket(0, windowStart, windowSize, length, pathName, -1);
     my_packets.push_back(packet);
     displayContent(packet,true);
     sendto(sock, packet, PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
@@ -479,6 +487,9 @@ int main(int argc, char * const argv[]) {
                   for (actualReadLen = 0; actualReadLen < toReadLen; actualReadLen ++) {
                     /* create toReadLen packets and push them to vector mypackets*/
 		              memset(data, 0, 1000+1);
+                      // get start(offset) for pkt
+                      int offset = file.tellg();
+                      cout << "offset: " << offset <<  endl;
                       file.read(data, 1000);
 //                      printf("--->file data addr：%p\n", data);
 		              data[1000] = '\0';
@@ -487,12 +498,12 @@ int main(int argc, char * const argv[]) {
                         //reach the end of file
                           cout << "Reaching to end of file. This is the last packet" << endl;
                           file.close();
-                          my_packets.push_back(setPacket(3, actualReadMin + actualReadLen, windowSize, strlen(data), data)); // last packet
+                          my_packets.push_back(setPacket(3, actualReadMin + actualReadLen, windowSize, strlen(data), data, offset)); // last packet
                           lastPktSeq = actualReadMin + actualReadLen;
                           actualReadLen++;
                           break;
                       } else {
-                          my_packets.push_back(setPacket(1, actualReadMin + actualReadLen, windowSize, strlen(data), data));
+                          my_packets.push_back(setPacket(1, actualReadMin + actualReadLen, windowSize, strlen(data), data, offset));
                       }
                       /* push packet into window + send packet */
                       setTimestamp(my_packets.back());
