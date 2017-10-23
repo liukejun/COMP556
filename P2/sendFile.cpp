@@ -184,7 +184,7 @@ void setTimestamp(char* buffer) {
 }
 
 void displayContent(char* pkt, bool data) {
-    cout << "###packet type= " << getType(pkt) << " seq_num= " << getSeqNum(pkt) << " window_size= " << getWindowSize(pkt) << " data_length= " << getDataLength(pkt) << " checksum= " << getChecksum(pkt);
+    cout << "###packet type= " << getType(pkt) << " seq_num= " << getSeqNum(pkt) << " window_size= " << getWindowSize(pkt) << " data_length= " << getDataLength(pkt) << "offset= " << getOffset(pkt) << " checksum= " << getChecksum(pkt);
     if (data) {
         cout << " data= " << getData(pkt) << endl;
     } else {
