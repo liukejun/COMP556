@@ -102,25 +102,12 @@ string getData(char* buffer) {
     return data;
 }
 
-// getContentforChecksum(char* buffer) {
-//    stringstream strs;
-//    strs << getType(buffer);
-//    cout << "After append getType strs is " << strs.str() << endl;
-//    strs << getSeqNum(buffer);
-//    strs << getWindowSize(buffer);
-//   strs << getDataLength(buffer); 
-//    cout << "\n\nent of Checksum is" << strs.str() << endl; 
-//    return strs.str();
-//}
-
 int getContentLength(char* buffer) {
     stringstream strs;
     strs << getType(buffer);
-    cout << "After append getType strs is " << strs.str() << endl;
     strs << getSeqNum(buffer);
     strs << getWindowSize(buffer);
     strs << getDataLength(buffer);
-    cout << "\n\nContent of Checksum is" << strs.str() << endl;
     return strs.str().length();
 }
 
@@ -210,14 +197,10 @@ char* setPacket(int type, int seq_num, int window_size,
     *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
     buffer[24] = '\0';
     strncat(buffer + 24, data.c_str(), data_length);
-    buffer[24 + DATALEN] = '\0';
-    //cout<<getContentforChecksum(buffer).c_str()"<<getData(buffer).c_str()<<"  data_length"<<data_length + 16<<endl;
-    string contentOfChecksum = getContentforChecksum(buffer);
+    buffer[24 + DATALEN] = '\0';string contentOfChecksum = getContentforChecksum(buffer);
     int contentLength = contentOfChecksum.length();
     char *checksum = str2md5(contentOfChecksum.c_str(), contentLength);
-    cout<<"yanqiaoz after str2md5 checksum"<<checksum<<endl;
     strncat(buffer + 24 + DATALEN, checksum, MD5LEN);
-    printf("checksum = %s", buffer + 24 + DATALEN);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
     buffer[PACKETLEN] = '\0';
@@ -225,7 +208,6 @@ char* setPacket(int type, int seq_num, int window_size,
 }
 
 string createFile (string file) {
-    
     if (file.length() == 0) {
         cout << "Path and file name is empty" << "\n";
         return "";
@@ -318,16 +300,8 @@ int main (int numArgs, char **args) {
             exit(1);
         }
 
-        cout<<endl;
-        cout << "Received packet from " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << endl;
-        
-        cout << "#####Recv packet content########" << endl;
-        cout << "type= " << getType(receivedPacket) << endl;
- 	cout << " seq_num= " << getSeqNum(receivedPacket) << endl;
-	cout << " window_size= " << getWindowSize(receivedPacket) << endl;
-	cout << " data_length= " << getDataLength(receivedPacket) << endl;
-	cout << " checksum= " << getChecksum(receivedPacket) << endl;
-	//cout << " data= " << getData(receivedPacket) << endl;
+        cout<<endl;   
+        cout << "#####Recv packet content########" << " seq_num= " << getSeqNum(receivedPacket) << endl;
         
         /* check whether received packet is in window([windowStart,windowStart+windowSize-1])
          if in window, check whether checksum is the same,
@@ -338,39 +312,43 @@ int main (int numArgs, char **args) {
          */
         if (getType(receivedPacket) == 0) {
              if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
-                cout << "Packet " << getSeqNum(receivedPacket) << "not in window!" << endl;
+                cout << "[recv data] start (length) IGNORED." << endl;
                 char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
                 sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                 memset(ACK, 0, PACKETLEN+1);
-                free(ACK);                   
+                free(ACK);  
+                memset(receivedPacket,0,PACKETLEN+1);
+                free(receivedPacket);                 
              } else {
                  if (getDataLength(receivedPacket) < 0 || getDataLength(receivedPacket) > DATALEN) {
-                    cout << "Packet " << getSeqNum(receivedPacket) << "length not correct!" << endl;
+                    cout << "[recv corrupt packet]" << endl;
                     char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
                     sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                     memset(ACK, 0, PACKETLEN+1);
-                    free(ACK);    
+                    free(ACK);  
+                    memset(receivedPacket,0,PACKETLEN+1);
+                    free(receivedPacket);  
                  } else {
-    		    string testChecksum = getContentforChecksum(receivedPacket);
+    		        string testChecksum = getContentforChecksum(receivedPacket);
                     int testLength = testChecksum.length();
                     const char* received_checksum = str2md5(testChecksum.c_str(), testLength);
-    //                char *received_checksum = str2md5(getContentforChecksum(receivedPacket).c_str(), getDataLength(receivedPacket) + 16);
-    //                printf("New calculated checksum is %s ", received_checksum);
-    //                 cout << "Received checksum is " << getChecksum(receivedPacket) << endl;
-                  if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {
-    //                 if ((string(received_checksum)).compare(getChecksum(receivedPacket)) != 0) {
-                      cout << "Content of file name and path not similar!" << endl;
+                    if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {
+                      cout << "[recv corrupt packet]" << endl;
                       char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
                       sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                       memset(ACK, 0, PACKETLEN+1);
-                      free(ACK);       
-                      } else {
+                      free(ACK); 
+                      memset(receivedPacket,0,PACKETLEN+1);
+                      free(receivedPacket);      
+                    } else {
                         // path and filename, create a new file with.recv extension
-        //                cout << "Create file " << getData(receivedPacket) << endl;
+                        if (getSeqNum(receivedPacket) == lastACKnum + 1) {
+                            cout << "[recv data] start ( " << getDataLength(receivedPacket) << " ) ACCEPTED(in-order)." << endl;
+                        } else {
+                            cout << "[recv data] start ( " << getDataLength(receivedPacket) << " ) ACCEPTED(out-of-order)." << endl;
+                        }
                         pathFile = createFile(getData(receivedPacket));
-        //                cout << "Path File " << pathFile << endl;
                         my_packets.insert(receivedPacket);
-                        cout << "Current set size is : " << my_packets.size() << endl;
                         cout << "Send ACK now" << getSeqNum(receivedPacket) << endl;
                         string data;
                         char* ACK = setPacket(2, getSeqNum(receivedPacket), getWindowSize(receivedPacket), 0, data);
@@ -385,10 +363,9 @@ int main (int numArgs, char **args) {
                  
              }
 	    } else {
-            cout << "Window start " << windowStart << endl;
             if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
                 // not in window
-                cout << "Packet " << getSeqNum(receivedPacket) << "not in window!" << endl;
+                cout << "[recv data] start (length) IGNORED." << endl;
                 char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
                 sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);      
                 memset(ACK, 0, PACKETLEN+1);
@@ -397,40 +374,39 @@ int main (int numArgs, char **args) {
                 free(receivedPacket);
             } else {
                 if (getDataLength(receivedPacket) < 0 || getDataLength(receivedPacket) > DATALEN) {
-                    cout << "Packet " << getSeqNum(receivedPacket) << "length not correct!" << endl;
+                    cout << "[recv corrupt packet]" << endl;
                     char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
                     sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                     memset(ACK, 0, PACKETLEN+1);
-                    free(ACK);    
+                    free(ACK);  
+                    memset(receivedPacket,0,PACKETLEN+1);
+                    free(receivedPacket);  
                  } else {
-    //                unsigned long received_checksum = computeChecksum(getData(receivedPacket));
-    		    string testChecksum = getContentforChecksum(receivedPacket);
+    		        string testChecksum = getContentforChecksum(receivedPacket);
                     int testLength = testChecksum.length();
                     const char* received_checksum = str2md5(testChecksum.c_str(), testLength);
-	//	    cout << "yanqiao test type= " << getType(forchecksum) << " seq_num= " << getSeqNum(forchecksum) << " window_size= " << getWindowSize(forchecksum) << " data_length= " << getDataLength(forchecksum) << " checksum= " << getChecksum(forchecksum) << " data= " << getData(forchecksum) <<"end"<< endl;
-    //                char *received_checksum = str2md5(getContentforChecksum(receivedPacket).c_str(), getDataLength(receivedPacket) + 16);
-    //                if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {
-    //              cout << "Start to compare received checksum" << endl;
-    //              cout << "reveived_checksum is done " << string(received_checksum) << endl;
-   		    const char* received_packet_checksum = getChecksum(receivedPacket);
-		    printf("\nRECEIVED_PACKET_CHECKSUM is %s, while newly calculated checksum is %s\n", received_packet_checksum, received_checksum);
-                    if (strcmp(received_checksum, received_packet_checksum) != 0) {
-			//checksum is not the same,
-                        cout << "Content not similar!!!" << endl;
+   		            const char* received_packet_checksum = getChecksum(receivedPacket);
+		            if (strcmp(received_checksum, received_packet_checksum) != 0) {
+			             //checksum is not the same,
+                        cout << "[recv corrupt packet]" << endl;
                         char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
                         sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);      
                         memset(ACK, 0, PACKETLEN+1);
-                        free(ACK);    
+                        free(ACK); 
+                        memset(receivedPacket,0,PACKETLEN+1);
+                        free(receivedPacket);   
                     } else {
                         // in window and content is the same
-                        cout << "In window and checksum is the same!" << endl;
+                        if (getSeqNum(receivedPacket) == lastACKnum + 1) {
+                            cout << "[recv data] start ( " << getDataLength(receivedPacket) << " ) ACCEPTED(in-order)." << endl;
+                        } else {
+                            cout << "[recv data] start ( " << getDataLength(receivedPacket) << " ) ACCEPTED(out-of-order)." << endl;
+                        }
                         my_packets.insert(receivedPacket);
                         int nextWindowStart = windowStart;
-                        // iterate my_packets and find correct sequence number that should be sent ACK
-                        
+                        // iterate my_packets and find correct sequence number that should be sent ACK             
                         for (set<char*>::iterator it=my_packets.begin(); it!=my_packets.end(); ++it) {
                             char* cur = *it;
-    //                        cout << "Current Packet in Iterator " << getSeqNum(cur) << endl;
                             if (getSeqNum(cur) == nextWindowStart) {
                                 nextWindowStart ++;
                             } else {
@@ -441,45 +417,30 @@ int main (int numArgs, char **args) {
                         if (nextWindowStart == windowStart) {
     //                        cout << "First element in set is not windowStart" << endl;
                         } else {
-                            // send correct sequence number in ACK
-                            cout << "~~~~~~~~~~~Send packet content~~~~~~~~~~" << endl;
                             string data;
                             char* ACK = setPacket(2, nextWindowStart - 1, getWindowSize(receivedPacket), 0, data);
                             sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);
-          //                  cout << "type= " << getType(ACK) << " seq_num= " << nextWindowStart - 1 << " window_size= " << getWindowSize(ACK) << " data_length= " << getDataLength(ACK) << " checksum= " << getChecksum(ACK) << endl;
-            //                cout << "\n\n";
                             memset(ACK, 0, PACKETLEN+1);
                             free(ACK);    
                             lastACKnum = nextWindowStart - 1;
                             // write to file and erase elements from windowStart - nextWindowStart - 1
-    //                        cout << "Path file " << pathFile << endl;
                             ofstream file(pathFile.c_str(),ios_base::app);
                             set<char*>::iterator it = my_packets.begin();
                             for (it = my_packets.begin(); it != my_packets.end(); ) {
                                 if (windowStart < nextWindowStart) {
                                     char* cur = *it;
-    //                                printf("the address of receivedPacket %p\n", receivedPacket);
-    //                                printf("the address of cur%p\n", cur);
-    //                                printf("the address of it %p\n", it);
                                     if (getType(cur) == 3) {
-    //                                  cout << "Current Packet to write to file " << getData(cur) << endl;
                                         string toWrite = getData(cur);
                                         file << toWrite;
-    //                                    cout << "Start to erase " << endl;
                                         clearPacket(cur);
                                         my_packets.erase(it++);
-    //                                    cout << "End erase ok" << endl;
                                         file.close();
                                         exit(0);
                                     } else {
-    //                                  cout << "Current Packet to write to file " << getData(cur) << endl;
                                         string toWrite = getData(cur);
                                         file << toWrite;
-    //                                    cout << "Start to erase " << endl;
                                         clearPacket(cur);
                                         my_packets.erase(it++);
-    //                                    cout << "End erase ok" << endl;
-                                        // cur.clear();`
                                         windowStart ++;
                                     }
                                 } else {
