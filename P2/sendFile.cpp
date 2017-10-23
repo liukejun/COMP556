@@ -306,6 +306,7 @@ void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin
         }
         setTimestamp(my_packets.at(0));
         sendto(sock, my_packets.at(0), PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
+        cout << "[send data] " << getOffset(my_packets.at(0)) << " (" << getDataLength(my_packets.at(0)) << ")" << endl;
         cout << "\n\n Resend...";
 //        printf("checksum = %s", getChecksum(my_packets.at(0)));
     }
@@ -406,6 +407,7 @@ int main(int argc, char * const argv[]) {
     my_packets.push_back(packet);
     displayContent(packet,true);
     sendto(sock, packet, PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
+    cout << "[send data] " << "File name and directory" << endl;
     
     
     //open the file
@@ -516,6 +518,7 @@ int main(int argc, char * const argv[]) {
                   int pendingPktmin = my_packets.size() - actualReadLen;
                   for (int k = pendingPktmin; k < my_packets.size(); k++) {
                       sendto(sock, my_packets.at(k), PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
+                      cout << "[send data] " << getOffset(my_packets.at(k)) << " (" << getDataLength(my_packets.at(k)) << ")" << endl;
                       cout << "!!!!!!!!!!!!!!!!send new pkg..." << getSeqNum(my_packets.at(k)) << endl;
 //                      displayContent(my_packets.at(k), true);
 //                      cout << "\n\n";
