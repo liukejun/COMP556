@@ -409,7 +409,7 @@ int main(int argc, char * const argv[]) {
     int length = (int)pathName.length();
     char* packet = setPacket(0, windowStart, windowSize, length, pathName, -1);
     my_packets.push_back(packet);
-    displayContent(packet,true);
+    //displayContent(packet,true);
     sendto(sock, packet, PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
     cout << "######Send Packet Sequence No." << getSeqNum(packet) << "#######" <<endl;
     cout << "[send data] " << "File name and directory" << endl;
@@ -461,7 +461,7 @@ int main(int argc, char * const argv[]) {
               /* recv ack */
             char* receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
             gettimeofday(&lastACKtv, NULL);
-            displayContent(receivedPacket, false);
+            //displayContent(receivedPacket, false);
             /* check if ack out-of-window [windowStart, my_packets.size + windowStart - 1]*/
             int windowEnd = my_packets.size() + windowStart - 1;
 //            cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
