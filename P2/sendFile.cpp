@@ -359,9 +359,6 @@ int main(int argc, char * const argv[]) {
         }
     }
     
-    char *buf;
-    buf = (char *)malloc(BUFLEN);
-    
     /* our client socket */
     int sock;
     
@@ -461,11 +458,19 @@ int main(int argc, char * const argv[]) {
                  
         if(FD_ISSET(sock, &read_set)){
               /* recv ack */
+            char *buf = (char *)malloc(PACKETLEN + 1);
+            printf("buf addr %p\n", buf);
             char* receivedPacket = receiveACK(sock, buf, sin_other, lastPktSeq);
+            printf("receivedPacket addr %p\n", buf);
+            displayContent(receivedPacket, true);
             gettimeofday(&lastACKtv, NULL);
+            cout << "getContentforChecksum" << endl;
             string testChecksum = getContentforChecksum(receivedPacket);
             int testLength = testChecksum.length();
+            cout << "test length = " << testChecksum.length();
+            cout << "str2md5..." << endl;
             char* received_checksum = str2md5(testChecksum.c_str(), testLength);
+            cout << "compare..." << endl;
             if (strcmp(received_checksum, getChecksum(receivedPacket).c_str()) != 0) {
                 cout << "checksum not same!" << endl;
                 memset(received_checksum, 0, MD5LEN + 1);
@@ -482,14 +487,10 @@ int main(int argc, char * const argv[]) {
 //            cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
             if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) > windowEnd) {
 //                cout << "ACK out of window [" << windowStart << ", " << windowEnd << "]" << endl;
+                memset(receivedPacket, 0, PACKETLEN + 1);
+                free(receivedPacket);
             } else {
                 /* move window */
-                // delete
-//                cout << "\n\nDelete pkg" << endl;
-//                cout << "\n\nData in vector ===============before delete" << endl;
-//                 for (int i = 0; i < my_packets.size(); i++) {
-//                     displayContent(my_packets.at(i), false);
-//                 }
                 for (int i = 0; i < getSeqNum(receivedPacket) - windowStart + 1; i++) {
                     clearPacket(my_packets.at(i));
                 }
@@ -500,6 +501,8 @@ int main(int argc, char * const argv[]) {
 //                 }
                 int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
                 windowStart = getSeqNum(receivedPacket) + 1;
+                memset(receivedPacket, 0, PACKETLEN + 1);
+                free(receivedPacket);
 //                cout << "Window start move to " << windowStart << endl;
                 if (lastPktSeq == -2) {
                 /* add new pkg into window */
@@ -529,11 +532,6 @@ int main(int argc, char * const argv[]) {
                       /* push packet into window + send packet */
                       setTimestamp(my_packets.back());
                   }
-                /* send new pkg */
-//                  cout << "\n\n----" << windowSize << "----" << actualReadLen << endl;
-                // for (int i = 0; i < my_packets.size(); i++) {
-                //     my_packets.at(i).displayContent();
-                // }
                   int pendingPktmin = my_packets.size() - actualReadLen;
                   for (int k = pendingPktmin; k < my_packets.size(); k++) {
                       sendto(sock, my_packets.at(k), PACKETLEN, 0, (struct sockaddr *)&sin, sizeof sin);
@@ -548,10 +546,6 @@ int main(int argc, char * const argv[]) {
                 }
             }
         }
-
-//        if(FD_ISSET(sock, &write_set)){
-//            cout << "======HAS SOMETHING TO WRITE=======" << endl;
-//        }
     }
     file.close();
     free(data);
