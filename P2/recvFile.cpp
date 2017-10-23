@@ -21,24 +21,6 @@
 #include<openssl/md5.h>
 #include <set>
 
-//#ifdef __APPLE__
-//#include <machine/endian.h>
-//#include <libkern/OSByteOrder.h>
-//#include <set>
-//
-//#define htobe64(x) OSSwapHostToBigInt64(x)
-//#define htole64(x) OSSwapHostToLittleInt64(x)
-//#define be64toh(x) OSSwapBigToHostInt64(x)
-//#define le64toh(x) OSSwapLittleToHostInt64(x)
-//
-//#define __BIG_ENDIAN BIG_ENDIAN
-//#define __LITTLE_ENDIAN LITTLE_ENDIAN
-//#define __BYTE_ORDER BYTE_ORDER
-//#else
-//#include
-//#include
-//#endif
-
 #define BUFLEN 5000  //Max length of buffer
 #define PACKETLEN 1060  //Max length of buffer
 #define MD5LEN 32
@@ -63,7 +45,6 @@ int getType(char* buffer) {
 }
 
 int getSeqNum(const char* buffer) {
-//    cout << "Enter here: getSeqNum\n";
     int seq_num = (int) ntohl(*(int*)(buffer + 4));
     return seq_num;
 }
@@ -161,7 +142,6 @@ void displayContent(char* pkt, bool data) {
 }
 
 char *str2md5(const char *str, int length) {
-//    printf("str2 %s", str);
     int n;
     MD5_CTX c;
     unsigned char digest[16];
@@ -225,14 +205,11 @@ string createFile (string file) {
         string name = pathFile[1] + ".recv";
         int status = mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         ofstream file((path+name).c_str());
-        // string data("To Test !!!! data to write to file");
-        // file << data;
         return "./" + path+name;
     }
 }
 
-bool comparator(const char *s1, const char *s2)
-{   
+bool comparator(const char *s1, const char *s2) {   
     return getSeqNum(s1) < getSeqNum(s2);
 }
 
@@ -295,7 +272,6 @@ int main (int numArgs, char **args) {
     //keep listening for data
     while(1)
     {
-        // cout << "Waiting for data..." << endl;
         fflush(stdout);
         
         char *receivedPacket;
@@ -313,10 +289,10 @@ int main (int numArgs, char **args) {
         
         /* check whether received packet is in window([windowStart,windowStart+windowSize-1])
          if in window, check whether checksum is the same,
-         if checksum is not the same, ignore?
+         if checksum is not the same, corrupt data
          if checksum is the same, push the packet to my_packets, iterate my_packets and decide
          which seq_num should be sent, send ACK
-         if not in window, ignore?
+         if not in window, corrupt data
          */
         if (getType(receivedPacket) == 0) {
              if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
@@ -425,7 +401,6 @@ int main (int numArgs, char **args) {
                         }
                         // if the first element in set is not windowStart
                         if (nextWindowStart == windowStart) {
-    //                        cout << "First element in set is not windowStart" << endl;
                         } else {
                             string data;
                             char* ACK = setPacket(2, nextWindowStart - 1, getWindowSize(receivedPacket), 0, data, -1);
