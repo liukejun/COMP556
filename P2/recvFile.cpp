@@ -40,7 +40,7 @@
 //#endif
 
 #define BUFLEN 5000  //Max length of buffer
-#define PACKETLEN 1056  //Max length of buffer
+#define PACKETLEN 1060  //Max length of buffer
 #define MD5LEN 32
 #define DATALEN 1000
 
@@ -78,15 +78,19 @@ int getDataLength(char* buffer) {
     return data_length;
 }
 
+int getOffset(char* buffer) {
+    int offset = (int) ntohl(*(int*)(buffer + 16));
+    return offset;
+}
 
 char* getChecksum(char* buff) {
-    return buff + 24 + DATALEN;
+    return buff + 28 + DATALEN;
 }
 
 struct timeval getTimeStamp(char* buffer) {
     struct timeval time;
-    time.tv_sec = (long) ntohl(*(long*)(buffer + 16));
-    time.tv_usec = (int) ntohl(*(int*)(buffer + 20));
+    time.tv_sec = (long) ntohl(*(long*)(buffer + 20));
+    time.tv_usec = (int) ntohl(*(int*)(buffer + 24));
     return time;
 }
 
@@ -94,7 +98,7 @@ string getData(char* buffer) {
     int len = getDataLength(buffer);
     char* res = (char*)malloc(len + 1);
     res[0] = '\0';
-    strncpy(res, buffer + 24, len);
+    strncpy(res, buffer + 28, len);
     res[len] = '\0';
     string data((char*)res);
     memset(res, 0, len + 1);
@@ -108,6 +112,7 @@ int getContentLength(char* buffer) {
     strs << getSeqNum(buffer);
     strs << getWindowSize(buffer);
     strs << getDataLength(buffer);
+    strs << getOffset(buffer);
     return strs.str().length();
 }
 
@@ -121,6 +126,7 @@ string getContentforChecksum(char* buffer) {
     strs << getSeqNum(buffer);
     strs << getWindowSize(buffer);
     strs << getDataLength(buffer);
+    strs << getOffset(buffer);
     strcat(res, strs.str().c_str());
     res[headerlength] = '\0';
     strcat(res, getData(buffer).c_str());
@@ -141,12 +147,12 @@ void setTimestamp(char* buffer) {
     if (gettimeofday(&time, NULL) == -1) {
         printf("Fail to get time.\n");
     }
-    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
-    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
+    *(long *) (buffer + 20) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 24) = (int) htonl(time.tv_usec);
 }
 
 void displayContent(char* pkt, bool data) {
-    cout << "###packet type= " << getType(pkt) << " seq_num= " << getSeqNum(pkt) << " window_size= " << getWindowSize(pkt) << " data_length= " << getDataLength(pkt) << " checksum= " << getChecksum(pkt);
+    cout << "###packet type= " << getType(pkt) << " seq_num= " << getSeqNum(pkt) << " window_size= " << getWindowSize(pkt) << " data_length= " << getDataLength(pkt) << "offset= " << getOffset(pkt) << " checksum= " << getChecksum(pkt);
     if (data) {
         cout << " data= " << getData(pkt) << endl;
     } else {
@@ -193,14 +199,16 @@ char* setPacket(int type, int seq_num, int window_size,
     if (gettimeofday(&time, NULL) == -1) {
         printf("Fail to get time.\n");
     }
-    *(long *) (buffer + 16) = (long) htonl(time.tv_sec);
-    *(int *) (buffer + 20) = (int) htonl(time.tv_usec);
-    buffer[24] = '\0';
-    strncat(buffer + 24, data.c_str(), data_length);
-    buffer[24 + DATALEN] = '\0';string contentOfChecksum = getContentforChecksum(buffer);
+    *(int*)(buffer + 16) = (int)htonl(offset);
+    *(long *) (buffer + 20) = (long) htonl(time.tv_sec);
+    *(int *) (buffer + 24) = (int) htonl(time.tv_usec);
+    buffer[28] = '\0';
+    strncat(buffer + 28, data.c_str(), data_length);
+    buffer[28 + DATALEN] = '\0';
+    string contentOfChecksum = getContentforChecksum(buffer);
     int contentLength = contentOfChecksum.length();
     char *checksum = str2md5(contentOfChecksum.c_str(), contentLength);
-    strncat(buffer + 24 + DATALEN, checksum, MD5LEN);
+    strncat(buffer + 28 + DATALEN, checksum, MD5LEN);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
     buffer[PACKETLEN] = '\0';
@@ -313,7 +321,7 @@ int main (int numArgs, char **args) {
         if (getType(receivedPacket) == 0) {
              if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
                 cout << "[recv data] start (length) IGNORED." << endl;
-                char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
+                char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                 sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                 memset(ACK, 0, PACKETLEN+1);
                 free(ACK);  
@@ -322,7 +330,7 @@ int main (int numArgs, char **args) {
              } else {
                  if (getDataLength(receivedPacket) < 0 || getDataLength(receivedPacket) > DATALEN) {
                     cout << "[recv corrupt packet]" << endl;
-                    char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
+                    char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                     sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                     memset(ACK, 0, PACKETLEN+1);
                     free(ACK);  
@@ -334,7 +342,7 @@ int main (int numArgs, char **args) {
                     const char* received_checksum = str2md5(testChecksum.c_str(), testLength);
                     if (strcmp(received_checksum, getChecksum(receivedPacket)) != 0) {
                       cout << "[recv corrupt packet]" << endl;
-                      char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
+                      char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                       sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                       memset(ACK, 0, PACKETLEN+1);
                       free(ACK); 
@@ -351,7 +359,7 @@ int main (int numArgs, char **args) {
                         my_packets.insert(receivedPacket);
                         cout << "Send ACK now" << getSeqNum(receivedPacket) << endl;
                         string data;
-                        char* ACK = setPacket(2, getSeqNum(receivedPacket), getWindowSize(receivedPacket), 0, data);
+                        char* ACK = setPacket(2, getSeqNum(receivedPacket), getWindowSize(receivedPacket), 0, data, -1);
                         sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);
                         memset(ACK, 0, PACKETLEN+1);
                         free(ACK);    
@@ -367,7 +375,7 @@ int main (int numArgs, char **args) {
             if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
                 // not in window
                 cout << "[recv data] start (length) IGNORED." << endl;
-                char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
+                char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                 sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);      
                 memset(ACK, 0, PACKETLEN+1);
                 free(ACK);    
@@ -376,7 +384,7 @@ int main (int numArgs, char **args) {
             } else {
                 if (getDataLength(receivedPacket) < 0 || getDataLength(receivedPacket) > DATALEN) {
                     cout << "[recv corrupt packet]" << endl;
-                    char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
+                    char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                     sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                     memset(ACK, 0, PACKETLEN+1);
                     free(ACK);  
@@ -390,7 +398,7 @@ int main (int numArgs, char **args) {
 		            if (strcmp(received_checksum, received_packet_checksum) != 0) {
 			             //checksum is not the same,
                         cout << "[recv corrupt packet]" << endl;
-                        char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "");
+                        char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                         sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);      
                         memset(ACK, 0, PACKETLEN+1);
                         free(ACK); 
@@ -419,7 +427,7 @@ int main (int numArgs, char **args) {
     //                        cout << "First element in set is not windowStart" << endl;
                         } else {
                             string data;
-                            char* ACK = setPacket(2, nextWindowStart - 1, getWindowSize(receivedPacket), 0, data);
+                            char* ACK = setPacket(2, nextWindowStart - 1, getWindowSize(receivedPacket), 0, data, -1);
                             sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);
                             memset(ACK, 0, PACKETLEN+1);
                             free(ACK);    
