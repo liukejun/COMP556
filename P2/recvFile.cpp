@@ -295,7 +295,7 @@ int main (int numArgs, char **args) {
     //keep listening for data
     while(1)
     {
-        cout << "Waiting for data..." << endl;
+        // cout << "Waiting for data..." << endl;
         fflush(stdout);
         
         char *receivedPacket;
@@ -320,7 +320,7 @@ int main (int numArgs, char **args) {
          */
         if (getType(receivedPacket) == 0) {
              if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
-                cout << "[recv data] start (length) IGNORED." << endl;
+                cout << "[recv data] " <<  getOffset(receivedPacket) << " ( "  << getDataLength(receivedPacket) << ") IGNORED." << endl;
                 char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                 sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                 memset(ACK, 0, PACKETLEN+1);
@@ -351,9 +351,9 @@ int main (int numArgs, char **args) {
                     } else {
                         // path and filename, create a new file with.recv extension
                         if (getSeqNum(receivedPacket) == lastACKnum + 1) {
-                            cout << "[recv data] start ( " << getDataLength(receivedPacket) << " ) ACCEPTED(in-order)." << endl;
+                            cout << "[recv data] " <<  getOffset(receivedPacket) << " ( "  << getDataLength(receivedPacket) << " ) ACCEPTED(in-order)." << endl;
                         } else {
-                            cout << "[recv data] start ( " << getDataLength(receivedPacket) << " ) ACCEPTED(out-of-order)." << endl;
+                            cout << "[recv data] " <<  getOffset(receivedPacket) << " ( "  << getDataLength(receivedPacket) << " ) ACCEPTED(out-of-order)." << endl;
                         }
                         pathFile = createFile(getData(receivedPacket));
                         my_packets.insert(receivedPacket);
@@ -375,7 +375,7 @@ int main (int numArgs, char **args) {
 	    } else {
             if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) >= windowStart + windowSize) {
                 // not in window
-                cout << "[recv data] start (length) IGNORED." << endl;
+                cout << "[recv data] " <<  getOffset(receivedPacket) << " ( "  << getDataLength(receivedPacket) << " ) IGNORED." << endl;
                 char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                 sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);      
                 memset(ACK, 0, PACKETLEN+1);
@@ -408,9 +408,9 @@ int main (int numArgs, char **args) {
                     } else {
                         // in window and content is the same
                         if (getSeqNum(receivedPacket) == lastACKnum + 1) {
-                            cout << "[recv data] start ( " << getDataLength(receivedPacket) << " ) ACCEPTED(in-order)." << endl;
+                            cout << "[recv data] " <<  getOffset(receivedPacket) << " ( "  << getDataLength(receivedPacket) << " ) ACCEPTED(in-order)." << endl;
                         } else {
-                            cout << "[recv data] start ( " << getDataLength(receivedPacket) << " ) ACCEPTED(out-of-order)." << endl;
+                            cout << "[recv data] " <<  getOffset(receivedPacket) << " ( "  << getDataLength(receivedPacket) << " ) ACCEPTED(out-of-order)." << endl;
                         }
                         my_packets.insert(receivedPacket);
                         int nextWindowStart = windowStart;
@@ -445,6 +445,7 @@ int main (int numArgs, char **args) {
                                         clearPacket(cur);
                                         my_packets.erase(it++);
                                         file.close();
+                                        cout << "[completed]" << endl;
                                         exit(0);
                                     } else {
                                         string toWrite = getData(cur);
