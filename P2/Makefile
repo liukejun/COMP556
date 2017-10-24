@@ -3,20 +3,20 @@ CFLAGS = -Wall -c -g
 LFLAGS =
 Libs = -lz
 
-%.o:	%.cpp
+%.o:	%.cc
 	$(CC) $(CFLAGS) -c $< -o $@
 
-all:	sendFile recvFile
+all:	sendfile recvfile
 
-recvFile :	recvFile.o
-	$(CC) -std=c++11 $(LFLAGS) $(Libs) -o recvFile recvFile.o -lcrypto
+recvfile :	recvfile.o
+	$(CC) -std=c++11 $(LFLAGS) $(Libs) -o recvfile recvfile.o -lcrypto
 
-sendFile:	sendFile.o
-	$(CC) -std=c++11 $(LFLAGS) $(Libs) -o sendFile sendFile.o -lcrypto
+sendfile:	sendfile.o
+	$(CC) -std=c++11 $(LFLAGS) $(Libs) -o sendfile sendfile.o -lcrypto
 
 clean:
 	rm -f *.o
 	rm -f *~
 	rm -f core.*.*
-	rm -f sendFile
-	rm -f recvFile
+	rm -f sendfile
+	rm -f recvfile
