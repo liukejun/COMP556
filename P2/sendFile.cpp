@@ -129,12 +129,10 @@ string getData(char* buffer) {
 int getContentLength(char* buffer) {
     stringstream strs;
     strs << getType(buffer);
-//    cout << "After append getType strs is " << strs.str() << endl;
     strs << getSeqNum(buffer);
     strs << getWindowSize(buffer);
     strs << getDataLength(buffer);
     strs << getOffset(buffer);
-//    cout << "\n\nContent of Checksum is" << strs.str() << endl;
     return strs.str().length();
 }
 
@@ -183,7 +181,6 @@ void displayContent(char* pkt, bool data) {
 }
 
 bool isTimeout(int windowStart, vector<char*> my_packets) {
-//    cout << "\n\ncheck Timeout for pkt " << getSeqNum(my_packets.at(0));
     
     char* firstPacketInWin = my_packets.at(0);
     // displayContent(firstPacketInWin);
@@ -191,20 +188,14 @@ bool isTimeout(int windowStart, vector<char*> my_packets) {
     gettimeofday(&currentTime, NULL);
     sendTime = getTimeStamp(firstPacketInWin);
     timeradd(&sendTime, &timeout, &resultTime);
-//    cout << "currentTime : " <<  currentTime.tv_sec << "." << currentTime.tv_usec << "| sendTime : " <<  sendTime.tv_sec << "." << sendTime.tv_usec << "| resultTime : " <<  resultTime.tv_sec << "." << resultTime.tv_usec << endl;
-//    cout << " now: " << currentTime.tv_sec << "." << currentTime.tv_usec << "(should timeout at " << resultTime.tv_sec << "." << resultTime.tv_usec << ")" << endl;
     if (timercmp(&currentTime, &resultTime, >)) {
         cout << "Packet " << getSeqNum(firstPacketInWin) << " timeout!" << endl;
         return true;
-    } else {
-//        cout << "no timeout" << endl;
     }
-//    cout << "\n\nleave Timeout" << endl;
     return false;
 }
 
 char *str2md5(const char *str, int length) {
-//    printf("str2 %s", str);
     int n;
     MD5_CTX c;
     unsigned char digest[16];
@@ -226,7 +217,6 @@ char *str2md5(const char *str, int length) {
     for (n = 0; n < 16; ++n) {
         snprintf(&(out[n*2]), 16*3, "%02x", (unsigned int)digest[n]);
     }
-//    printf("--->str2 return addr：%p\n", out);
     return out;
 }
 
@@ -235,11 +225,6 @@ char* setPacket(int type, int seq_num, int window_size,
     char * buffer;
     buffer = (char *) malloc(PACKETLEN + 1);
     memset(buffer, 0, PACKETLEN + 1);
-//    char *checksum = (char*)malloc(MD5LEN + 1);
-//    memset(checksum, 0, MD5LEN + 1);
-//    cout << "===================" << endl;
-//    printf("Generate checksum based on %d, %s\n", data_length, data.c_str());
-//    printf("%s\n", checksum);
     *(int*)buffer = (int)htonl(type);
     *(int*)(buffer + 4) = (int)htonl(seq_num);
     *(int*)(buffer + 8) = (int)htonl(window_size);
@@ -258,18 +243,9 @@ char* setPacket(int type, int seq_num, int window_size,
     int contentLength = contentOfChecksum.length();
     char *checksum = str2md5(contentOfChecksum.c_str(), contentLength);
     strncat(buffer + 28 + DATALEN, checksum, MD5LEN);
-//    printf("checksum = %s", buffer + 28 + DATALEN);
     memset(checksum, 0, MD5LEN + 1);
     free(checksum);
     buffer[PACKETLEN] = '\0';
-//    printf("Content after buffer + 56 is %s\n", buffer+56);
-//    cout << "all set" << endl;
-//    cout << "###Set packet type= " << getType(buffer) << endl;
-//    cout << " seq_num= " << getSeqNum(buffer) << endl;
-//    cout << " window_size= " << getWindowSize(buffer) << endl;
-//    cout << " data_length= " << getDataLength(buffer) << endl;
-//    cout << " checksum= " << getChecksum(buffer) << endl;
-//    cout << " data= " << getData(buffer) << endl;
     return buffer;
 }
 
@@ -277,8 +253,6 @@ char* setPacket(int type, int seq_num, int window_size,
 void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin, int sock, struct timeval lastACKtv) {
     // for the last packet, resend 10 times maximum
     if (isTimeout(windowStart, my_packets)) {
-        cout << "--------------Window Start is --------------"<< windowStart << endl;
-        cout << "First element in vector is " << getSeqNum(my_packets.at(0)) << endl;
         struct timeval currenttv, restv;
         gettimeofday(&currenttv, NULL);
         timersub(&currenttv, &lastACKtv, &restv);
@@ -384,10 +358,10 @@ int main(int argc, char * const argv[]) {
     sin.sin_port = htons(server_port);
     
     vector<char*> my_packets;
-    int windowSize = 100;
+    int windowSize = 50;
     int windowStart = 0;
     timeout.tv_sec = 0;
-    timeout.tv_usec = 12000;
+    timeout.tv_usec = 1000;
     lastPktRetry = 0;
     int lastPktSeq = -2;
     struct timeval lastACKtv;
@@ -419,7 +393,6 @@ int main(int argc, char * const argv[]) {
     int select_retval;
 
     while(1) {
-//        cout << "hello" << endl;
         FD_ZERO (&read_set); /* clear everything */
         FD_ZERO (&write_set); /* clear everything */
         
@@ -451,28 +424,23 @@ int main(int argc, char * const argv[]) {
             receiveACK(sock, receivedPacket, sin_other, lastPktSeq);
             gettimeofday(&lastACKtv, NULL);
             if (getDataLength(receivedPacket) < 0 || getDataLength(receivedPacket) > DATALEN) {
-                cout << "Data length not correct ! " <<endl;
+//                cout << "Data length not correct ! " <<endl;
                 memset(receivedPacket, 0, PACKETLEN + 1);
                 continue;
             }
             string testChecksum = getContentforChecksum(receivedPacket);
             int testLength = testChecksum.length();
                 char* received_checksum = str2md5(testChecksum.c_str(), testLength);
-            cout << "compare..." << endl;
             if (strcmp(received_checksum, getChecksum(receivedPacket).c_str()) != 0) {
-                cout << "checksum not same!" << endl;
                 memset(received_checksum, 0, MD5LEN + 1);
                 free(received_checksum);
                 continue;
             }
             memset(received_checksum, 0, MD5LEN + 1);
             free(received_checksum);
-            cout << "checksum is the same!" << endl;
             /* check if ack out-of-window [windowStart, my_packets.size + windowStart - 1]*/
             int windowEnd = my_packets.size() + windowStart - 1;
-//            cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
             if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) > windowEnd) {
-//                cout << "ACK out of window [" << windowStart << ", " << windowEnd << "]" << endl;
                 memset(receivedPacket, 0, PACKETLEN + 1);
             } else {
                 /* move window */
@@ -480,16 +448,11 @@ int main(int argc, char * const argv[]) {
                     clearPacket(my_packets.at(i));
                 }
                 my_packets.erase (my_packets.begin(), my_packets.begin() + getSeqNum(receivedPacket) - windowStart + 1);
-//                cout << "\n\nData in vector ===============after delete" << endl;
-//                 for (int i = 0; i < my_packets.size(); i++) {
-//                     displayContent(my_packets.at(i), false);
-//                 }
+
                 int toReadLen = windowSize - my_packets.size(); // add toReadLen new packets
                 windowStart = getSeqNum(receivedPacket) + 1;
-//                cout << "Window start move to " << windowStart << endl;
                 if (lastPktSeq == -2) {
                 /* add new pkg into window */
-//                  cout << "\n\nAdd " << toReadLen << " pkgs to window" << endl;
                   int actualReadLen = 0;
                   int actualReadMin = windowStart + windowSize - toReadLen;
                   for (actualReadLen = 0; actualReadLen < toReadLen; actualReadLen ++) {
@@ -498,9 +461,7 @@ int main(int argc, char * const argv[]) {
                       // get start(offset) for pkt
                       int offset = file.tellg();
                       file.read(data, 1000);
-//                      printf("--->file data addr：%p\n", data);
 		              data[1000] = '\0';
-                    // cout << "data(" << actualReadLen << ")= " << data << endl;
                       if(file.eof()){
                         //reach the end of file
                           cout << "Reaching to end of file. This is the last packet seq_num= " << actualReadMin + actualReadLen << endl;
@@ -532,30 +493,6 @@ int main(int argc, char * const argv[]) {
     }
     file.close();
     free(data);
-    
-    // send path and file name to receiver
-//    string pathName = path + " " + fileName;
-    /* to send path and file name, uncomment the following three lines*/
-    // char * secret_message = new char[pathName.length() + 1];
-    // strcpy(secret_message,pathName.c_str());
-    // sendto(sock, secret_message, strlen(secret_message)+1, 0, (struct sockaddr *)&sin, sizeof sin);
-    
-    // open file and read from file
-//    ifstream myReadFile;
-//    myReadFile.open(file_path);
-//    string output;
-//    if (myReadFile.is_open()) {
-//        cout << "file opened\n";
-//        while ( getline (myReadFile,output) )
-//        {
-//            cout << output << '\n';
-//        }
-//        myReadFile.close();
-//    } else {
-//        cout << "Cannot open file!!!\n";
-//    }
-//    
-//    sendto(sock, output.c_str(), strlen(output.c_str())+1, 0, (struct sockaddr *)&sin, sizeof sin);
     close(sock);
     
     return 0;
