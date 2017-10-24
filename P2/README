@@ -1,0 +1,145 @@
+******************
+Teammates
+******************
+
+Junru Xia(jx17) & Shuo Zhao(sz32) & Kejun Liu(kl50)
+
+
+
+
+
+******************
+Packet Format:
+******************
+
+ 0       4       8       12      16      20      24      28    31
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              Packet Type                    |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                            Sequence Number                  |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                             Window Size                     |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                             Data Length                     |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                                Offset                       |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                            Send Time(second)                |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                          Send Time(micro second)            |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                    Data (maximum size: 1000 bytes)          |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                               Checksum                      |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ 
+ |                             Checksum(Cont.)                 |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                             Checksum(Cont.)                 |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                             Checksum(Cont.)                 |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                             Checksum(Cont.)                 |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                             Checksum(Cont.)                 |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                             Checksum(Cont.)                 |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                             Checksum(Cont.)                 |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ 
+
+Packet Type 
+============
+We use a INT value to denote the type of packet being transmitted.
+There are four possible packet types: 0, 1, 2, 3. 
+0: This means the packet contains file name and file subdirectory. This is the first packet to arrive at receiver.
+1: This means the packet contains normal file content which transfers from sender to receiver.
+2: This means the packet contains ACK sent from receiver to sender.
+3: This means this is the last packet to arrive at receiver which contains the last of the file content.
+
+Sequence Number
+===============
+We use this value to uniquely denote packet which starts from 0 and increase by 1 each time.
+
+Window Size
+=============
+We use this INT value to denote sliding window’s size. Here, we set it as 50 in sender. More explanation can be found in the rest of this README.
+
+Data Length
+============
+This field contains the length of the data of the packet. Header length is not included.
+
+Offset
+===========
+This field represents the offset in to the sending file that the content of the packet holds.  
+
+Send Time(second) & Send Time (micro second)
+===========================================
+These two field contain the timestamp of the packet being sent.
+
+Data
+======
+The contents of the packet being sent. Can hold no more than 1000 bytes.
+
+Checksum
+==========
+The MD5 checksum of the packet header and data content which takes up 32 bytes.
+
+
+
+
+
+******************
+Algorithm
+******************
+
+Sliding window
+==============
+Sliding window is used to deal with corrupting packets, reordering packets, delaying packets, duplicating packets, and dropping packets. There are two points we’d like to mention:
+1. Calculate window size and timeout:
+We use project1 to measure average round trip time(RTT) and then use a linear regression model to calculate bandwidth. From bandwidth, window size can be roughly measured because throughput(window size * packet size / RTT) should be less than bandwidth.
+So, we get 
+	RTT = 774.1854 microseconds
+	bandwidth = 581.487 Mbps
+	window size < 52
+So we set window size as 50. Timeout as 1000 microseconds.
+
+2. Save in-window packet
+At Sender, a vector is used to hold all packets in window.
+At receiver, a set is used to hold all packets in window and sort them automatically.
+Once the window moves, the packet will be erased from the vector/set.
+
+
+MD5 checksum
+============
+Checksum is used to detect corrupting packets. If calculated checksum is not equal to the checksum included in packet, the packet will be considered as corrupting packet and be dropped.
+We include openssl here to compute MD5 checksum. 
+See function [char * str2md5(const char *str, int length)] for details. 
+Input: arg1- packet header and data content, arg2- the length of header and data
+Output: 32 bytes unique string for packet header and data content.
+
+
+
+
+
+******************
+Properties/features
+******************
+In order to make best use of bandwidth, we calculate bandwidth through linear regression model just like what we did in project1. And then window_size is set through: Throughput < Bandwidth. Throughput = Window Size * Packet Size / RTT. And we get good results: it takes about 1:15 minutes to transfer 30M files when delay, drop, reorder, mangle, duplicate are all set as 40%.
+
+
+
+
+
+******************
+User Guide
+******************
+Firstly, you can see a Makefile, sendfile.cc, recvfile.cc in your directory.
+To run programs, compile via command: make
+Then, (Note: Receiver must be opened before Sender)
+1. on Clear to open Receiver, run: ./recvfile -p [port_number]
+2. on Cai to open sender, run: ./sendfile -r [hostname]:[port_number] -f [subdirectory]/[filename]
+
+Note: 
+1. If the sender/receiver does not receive any response in 5 seconds, it will treat the other side as shutdown status and close the socket.
+2. If the last packet timeout at Sender, it will be resent for at most 100 times and then it will close the socket and exits.
+3. We use openssl to compute MD5 checksum. Linux has openssl at default. If you have to run at your local machine, e.g. Mac, Windows, you need to download or install openssl before compiling/running our programs. 
