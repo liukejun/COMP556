@@ -116,6 +116,7 @@ string getContentforChecksum(char* buffer) {
     string data((char*)res);
     memset(res, 0, headerlength + 1 + getDataLength(buffer));
     free(res);
+    //cout << "Get Content for checksum data is " << data << endl;
     return data;
 }
 
@@ -285,6 +286,7 @@ int main (int numArgs, char **args) {
 
         cout<<endl;   
         cout << "#####Recv Packet Sequence No."  << getSeqNum(receivedPacket) << " #####" << endl;
+        //cout << "Type= " << getType(receivedPacket) << "length = " << getDataLength(receivedPacket) << endl;
         
         /* check whether received packet is in window([windowStart,windowStart+windowSize-1])
          if in window, check whether checksum is the same,
@@ -305,7 +307,7 @@ int main (int numArgs, char **args) {
                 free(receivedPacket);                 
              } else {
                  if (getDataLength(receivedPacket) < 0 || getDataLength(receivedPacket) > DATALEN) {
-                    cout << "[recv corrupt packet]" << endl;
+                    cout << "1. [recv corrupt packet]" << endl;
                     char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                     sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                     memset(ACK, 0, PACKETLEN+1);
@@ -317,8 +319,9 @@ int main (int numArgs, char **args) {
     		        string testChecksum = getContentforChecksum(receivedPacket);
                     int testLength = testChecksum.length();
                     const char* received_checksum = str2md5(testChecksum.c_str(), testLength);
+                   // cout << "Newly calculated checksum is " << received_checksum << "While received checksum is " << getChecksum(receivedPacket).c_str() << endl;
                     if (strcmp(received_checksum, getChecksum(receivedPacket).c_str()) != 0) {
-                      cout << "[recv corrupt packet]" << endl;
+                      cout << "2. [recv corrupt packet]" << endl;
                       char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                       sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                       memset(ACK, 0, PACKETLEN+1);
@@ -361,7 +364,7 @@ int main (int numArgs, char **args) {
                 free(receivedPacket);
             } else {
                 if (getDataLength(receivedPacket) < 0 || getDataLength(receivedPacket) > DATALEN) {
-                    cout << "[recv corrupt packet]" << endl;
+                    cout << "1. [recv corrupt packet]" << endl;
                     char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                     sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other); 
                     memset(ACK, 0, PACKETLEN+1);
@@ -373,9 +376,10 @@ int main (int numArgs, char **args) {
     		        string testChecksum = getContentforChecksum(receivedPacket);
                     int testLength = testChecksum.length();
                     const char* received_checksum = str2md5(testChecksum.c_str(), testLength);
+                    cout << "Newly calculated checksum is " << received_checksum << "While received checksum is " << getChecksum(receivedPacket).c_str() << endl;
 		            if (strcmp(received_checksum, getChecksum(receivedPacket).c_str()) != 0) {
 			             //checksum is not the same,
-                        cout << "[recv corrupt packet]" << endl;
+                        cout << "2. [recv corrupt packet]" << endl;
                         char* ACK = setPacket(2, lastACKnum, getWindowSize(receivedPacket), 0, "", -1);
                         sendto(sock, ACK, PACKETLEN, 0, (struct sockaddr *)&si_other, sizeof si_other);      
                         memset(ACK, 0, PACKETLEN+1);
