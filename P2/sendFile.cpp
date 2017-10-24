@@ -450,6 +450,11 @@ int main(int argc, char * const argv[]) {
             memset(receivedPacket, 0, PACKETLEN + 1);
             receiveACK(sock, receivedPacket, sin_other, lastPktSeq);
             gettimeofday(&lastACKtv, NULL);
+            if (getDataLength(receivedPacket) < 0 || getDataLength(receivedPacket) > DATALEN) {
+                cout << "Data length not correct ! " <<endl;
+                memset(receivedPacket, 0, PACKETLEN + 1);
+                continue;
+            }
             string testChecksum = getContentforChecksum(receivedPacket);
             int testLength = testChecksum.length();
                 char* received_checksum = str2md5(testChecksum.c_str(), testLength);
@@ -468,6 +473,7 @@ int main(int argc, char * const argv[]) {
 //            cout << "\n\nCheck ACK window [" << windowStart << ", " << windowEnd << "]" << endl;
             if (getSeqNum(receivedPacket) < windowStart || getSeqNum(receivedPacket) > windowEnd) {
 //                cout << "ACK out of window [" << windowStart << ", " << windowEnd << "]" << endl;
+                memset(receivedPacket, 0, PACKETLEN + 1);
             } else {
                 /* move window */
                 for (int i = 0; i < getSeqNum(receivedPacket) - windowStart + 1; i++) {
