@@ -256,7 +256,7 @@ void handleTimeoutPkt(int windowStart, vector<char*> my_packets, sockaddr_in sin
         struct timeval currenttv, restv;
         gettimeofday(&currenttv, NULL);
         timersub(&currenttv, &lastACKtv, &restv);
-        if (restv.tv_sec > 10) {
+        if (restv.tv_sec > 5) {
             // Receiver hasn't sent any reply in 10 seconds, it might be down
             cout << "Haven't received any reply from receiver in 10 seconds. Receiver might be off...program exits now" << endl;
             cout << "[completed]" << endl;
