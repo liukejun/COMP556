@@ -178,6 +178,22 @@ bool DV_router::compute_dv()
 static const DV_router::DV_SEND_INTERV = 30 * 1000;
 static const DV_router::DV_OUT_TIME = 45 * 1000;
 
+//
+// LS routing method
+//
+
+void LS_router::update_neighb(
+    Port_id port_id, Router_id router_id, Time rtt, Neighb_delta delta)
+{
+    return;
+}
+
+bool LS_router::recv_ls(Packet& packet) { return false; }
+
+void LS_router::chk_stat(Router_id router) { return; }
+
+void LS_router::bcast_ls() { return; }
+
 
 RoutingProtocolImpl::RoutingProtocolImpl(Node* n)
     : RoutingProtocol(n)
