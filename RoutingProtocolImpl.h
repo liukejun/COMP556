@@ -209,10 +209,11 @@ public:
 
     /** Send DV to its neighbours.
      *
-     * Any traffic through the poisoned port is given an infinite cost.
+     * Reverse poison is implemented so that DV sent may not be the same as the
+     * local forward table.
      */
 
-    void send_dv(Port_id poisoned);
+    void send_dv();
 
     /** Check the status of a router.
      */
