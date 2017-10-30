@@ -154,7 +154,7 @@ enum class Alarm_type { PORT_CHK, PING_REQ, DV_CHK, DV_REQ, LS_CHK, LS_REQ };
  */
 
 struct Alarm {
-    Alarm_type alarm_type;
+    Alarm_type type;
 
     union {
         /** Port index.
@@ -170,6 +170,11 @@ struct Alarm {
         Router_id router_id;
 
     } content;
+
+    Alarm(Alarm_type type)
+        : alarm_type(type)
+    {
+    }
 };
 
 //
