@@ -74,11 +74,16 @@ bool DV_router::recv_dv(Packet& packet)
 
     auto& dv_entry = it->second;
     dv_entry.last_update = sys->time();
+
+    // Whenever we receive a DV from a router, a check is scheduled after the
+    // out time.
     Alarm* alarm = new Alarm(DV_CHK);
     alarm->content.router_id = packet.src;
-    sys->set_alarm(this, DV_OUT_TIME, alarm);
+    rp_.sys->set_alarm(this, DV_OUT_TIME, alarm);
 
-    size_t n_reachable = (packet.size - PACKET_HEADER_SIZE) / 4;
+    auto payload_size = packet.size - PACKET_HEADER_SIZE;
+    assert(payload_size % 4 == 0);
+    size_t n_reachable = payload_size / 4;
     auto payload = static_cast<uint16_t*>(packet.payload);
     auto& dv = dv_entry.dv;
     // Update the entire DV.
@@ -93,6 +98,8 @@ bool DV_router::recv_dv(Packet& packet)
 
     compute_dv();
     send_dv();
+
+    return false;
 }
 
 void DV_router::send_dv()
@@ -106,11 +113,12 @@ void DV_router::send_dv()
         auto dest = static_cast<uint16_t*>(packet) + 4;
         for (const auto& i : forward_table_) {
             dest[0] = htons(i.first);
+            // Reverse poison.
             dest[1] = htons(
                 i.second.port_id == port_id ? INFINITY_COST : i.second.cost);
             dest += 2;
         }
-        sys->send(port_id, packet, packet_size);
+        rp_.sys->send(port_id, packet, packet_size);
     }
 
     return;
@@ -147,7 +155,8 @@ bool DV_router::compute_dv()
         assert(port_stat.if_conn);
 
         auto router_id = port_stat.router_id;
-        auto entry = forward_table_[neighb_id];
+        // Forward table entry to the neighbour.
+        auto entry = forward_table_[router_id];
         if (port_stat.rtt <= entry.cost) {
             entry.port_id = port_id;
             entry.router_id = router_id;
@@ -156,8 +165,8 @@ bool DV_router::compute_dv()
 
         auto it = dvs_.find(router_id);
         if (it == dvs_.end()) {
-            // Neighbour with its DV not received yet, unable to route other
-            // packets through it.
+            // Neighbour with its DV not received yet or removed due to timeout
+            // for the heartbeat, unable to route other packets through it.
             continue;
         }
         auto& dv = it->second.dv;
