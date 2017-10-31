@@ -3,8 +3,8 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -74,7 +74,7 @@ using Port_stats = std::vector<Port_stat>;
  * The contents are the indices to the port status vector.
  */
 
-using Active_ports = std::unordered_set<size_t>;
+using Active_ports = std::set<size_t>;
 
 //
 // Core routing data structures.
