@@ -236,14 +236,19 @@ void RoutingProtocolImpl::init(unsigned short num_ports,
     protocol_type_ = protocol_type;
 
     ping_ports();
+    // Schedule the first port checking.  Later checking are scheduled after
+    // their update.
     for (size_t i = 0; i < num_ports; ++i) {
         sched_port_chk(i);
     }
 
     if (protocol_type == P_DV) {
-        dv_router_.reset(new DV_router(*this);
+        dv_router_.reset(new DV_router(*this));
+        // No need to make heartbeat right now because there is nothing yet.
+        sched_dv_heartbeat();
     } else if (protocol_type == P_LS) {
-        ls_router_.reset(new LS_router(*this);
+        ls_router_.reset(new LS_router(*this));
+        sched_ls_heartbeat();
     } else {
         assert(0);
     }
@@ -268,6 +273,7 @@ void RoutingProtocolImpl::handle_alarm(void* data)
     case (Alarm_type::DV_REQ):
         assert(dv_router_ != nullptr);
         DV_router_->send_dv();
+        sched_dv_heartbeat();
         break;
     case (Alarm_type::LS_CHK):
         assert(ls_router_ != nullptr);
@@ -276,6 +282,7 @@ void RoutingProtocolImpl::handle_alarm(void* data)
     case (Alarm_type::LS_REQ):
         assert(ls_router_ != nullptr);
         ls_router_->bcast_ls();
+        sched_ls_heartbeat();
         break;
     case default:
         assert(0);
