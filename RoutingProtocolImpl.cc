@@ -32,6 +32,7 @@ Packet parse_packet(Port_id port, void* packet, Packet_size size)
 void* prepare_packet(
     ePacketType type, Packet_size size, Router_id src, Router_id dest)
 {
+    assert(size >= PACKET_HEADER_SIZE);
     uint8_t* packet = new uint8_t[size];
     packet[0] = type;
     packet[1] = 0;
