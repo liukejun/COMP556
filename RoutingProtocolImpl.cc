@@ -386,8 +386,10 @@ void RoutingProtocolImpl::chk_port(Port_id port)
 void RoutingProtocolImpl::disassoc_port(Port_id port)
 {
     Port_stat& stat = port_stats_[port];
-    if (!stat.if_conn)
+    if (!stat.if_conn) {
+        assert(active_ports_.count(port) == 0);
         return;
+    }
 
     auto it = active_ports_.find(port);
     assert(it != active_ports_.end());
