@@ -204,8 +204,8 @@ public:
     friend class RoutingProtocolImpl;
 
     DV_router(RoutingProtocolImpl& rp)
-        : rp_{ rp }
-        , dvs_{}
+        : rp_(rp)
+        , dvs_()
     {
     }
 
@@ -269,7 +269,7 @@ public:
     friend class RoutingProtocolImpl;
 
     LS_router(RoutingProtocolImpl& rp)
-        : rp_{ rp }
+        : rp_(rp)
     {
     }
 
