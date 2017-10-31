@@ -96,6 +96,18 @@ struct Forward {
         , cost(INFINITY_COST)
     {
     }
+
+    /** Make equality comparison.
+     *
+     * This comparison is used for detecting of the forward table is actually
+     * updated.
+     */
+
+    inline bool operator==(const Forward& other) const
+    {
+        return router_id == other.router_id && port_id == other.port_id
+            && cost == other.cost;
+    }
 };
 
 /** The main forwarding table.
