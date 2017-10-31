@@ -192,6 +192,8 @@ bool DV_router::compute_dv()
         }
         auto& dv = it->second.dv;
         for (const auto& i : dv) {
+            // Skip circular routing to itself.
+            if (i.first == rp_.router_id_) continue;
             auto& entry = table[i.first];
             Time cost = port_stat.rtt <= INFINITY_COST - i.second
                 ? port_stat.rtt + i.second
@@ -457,6 +459,8 @@ bool RoutingProtocolImpl::recv_pong(Packet& packet)
     // Get current time as the first thing for better accuracy in RTT
     // estimation.
     Time curr_time = sys->time();
+
+    sched_port_chk(packet.port);
 
     auto& stat = port_stats_[packet.port];
 
