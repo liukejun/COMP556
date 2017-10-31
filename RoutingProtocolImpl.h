@@ -172,7 +172,7 @@ struct Alarm {
     } content;
 
     Alarm(Alarm_type type)
-        : alarm_type(type)
+        : type(type)
     {
     }
 };
@@ -183,10 +183,13 @@ struct Alarm {
 
 class RoutingProtocolImpl;
 
-/** Changes possible on a neighbour.
+/** Changes possible on a port.
+ *
+ * CONN - New connection or updated RTT.
+ * DISCONN - Disconnection
  */
 
-enum class Neighb_delta { RTT_INCR, RTT_DECR, DISCONN };
+enum class Port_event { CONN, DISCONN };
 
 /** The distance-vector router.
  */
@@ -199,8 +202,8 @@ public:
     {
     }
 
-    void update_neighb(
-        Port_id port_id, Router_id router_id, Time rtt, Neighb_delta);
+    void update_port(
+        Port_id port_id, Router_id router_id, Time rtt, Port_event event);
 
     /** Handle new dv received.
      */
@@ -258,8 +261,8 @@ public:
     {
     }
 
-    void update_neighb(
-        Port_id port_id, Router_id router_id, Time rtt, Neighb_delta delta);
+    void update_port(
+        Port_id port_id, Router_id router_id, Time rtt, Port_event event);
 
     /** Handle an incoming LS packet.
      */

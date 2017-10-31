@@ -49,8 +49,8 @@ const size_t PACKET_HEADER_SIZE = 8;
 // DV routing method.
 //
 
-void DV_router::update_neighb(
-    Port_id port_id, Router_id router_id, Time rtt, Neighb_delta delta)
+void DV_router::update_port(
+    Port_id port_id, Router_id router_id, Time rtt, Port_event event)
 {
     auto updated = compute_dv();
     if (!updated)
@@ -182,8 +182,8 @@ static const DV_router::DV_OUT_TIME = 45 * 1000;
 // LS routing method
 //
 
-void LS_router::update_neighb(
-    Port_id port_id, Router_id router_id, Time rtt, Neighb_delta delta)
+void LS_router::update_port(
+    Port_id port_id, Router_id router_id, Time rtt, Port_event even)
 {
     return;
 }
