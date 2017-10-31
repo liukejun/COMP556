@@ -10,7 +10,7 @@
 // Small utilities.
 //
 
-Packet parse_packet(Port_id port, void* packet)
+Packet parse_packet(Port_id port, void* packet, Packet_size size)
 {
     Packet res;
 
@@ -19,6 +19,7 @@ Packet parse_packet(Port_id port, void* packet)
 
     auto packet_16 = static_cast<uint16_t*>(packet);
     res.size = ntohs(packet_16[1]);
+    assert(res.size == size);
     res.src = ntohs(packet_16[2]);
     res.dest = ntohs(packet_16[3]);
 
@@ -275,7 +276,7 @@ void RoutingProtocolImpl::recv(
     unsigned short port, void* packet, unsigned short size)
 {
     // add your own code
-    Packet p = parse_packet(port, packet);
+    Packet p = parse_packet(port, packet, size);
     assert(p.size == size);
 
     bool owner_taken = false;

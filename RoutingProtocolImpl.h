@@ -127,7 +127,7 @@ struct Packet {
 /** Parse the given packet.
  */
 
-Packet parse_packet(Port_id, void*);
+Packet parse_packet(Port_id, void*, Packet_size);
 
 /** Prepare a packet to send.
  *
