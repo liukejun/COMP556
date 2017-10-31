@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 
 #include <arpa/inet.h>
 
@@ -33,11 +34,11 @@ void* prepare_packet(
     ePacketType type, Packet_size size, Router_id src, Router_id dest)
 {
     assert(size >= PACKET_HEADER_SIZE);
-    uint8_t* packet = new uint8_t[size];
+    auto packet = static_cast<uint8_t*>(malloc(size));
     packet[0] = type;
     packet[1] = 0;
 
-    auto packet_16 = static_cast<uint16_t*>(packet);
+    auto packet_16 = reinterpret_cast<uint16_t*>(packet);
     packet_16[1] = htons(size);
     packet_16[2] = htons(src);
     packet_16[3] = htons(dest);
@@ -64,7 +65,7 @@ void DV_router::update_port(
 bool DV_router::recv_dv(Packet& packet)
 {
     assert(packet.type == DV);
-    assert(packet.dest == router_id_);
+    assert(packet.dest == rp_.router_id_);
 
     auto it = dvs_.find(packet.src);
     if (it == dvs_.end()) {
@@ -73,13 +74,13 @@ bool DV_router::recv_dv(Packet& packet)
     }
 
     auto& dv_entry = it->second;
-    dv_entry.last_update = sys->time();
+    dv_entry.last_update = rp_.sys->time();
 
     // Whenever we receive a DV from a router, a check is scheduled after the
     // out time.
-    Alarm* alarm = new Alarm(DV_CHK);
+    Alarm* alarm = new Alarm(Alarm_type::DV_CHK);
     alarm->content.router_id = packet.src;
-    rp_.sys->set_alarm(this, DV_OUT_TIME, alarm);
+    rp_.sys->set_alarm(&rp_, DV_OUT_TIME, alarm);
 
     auto payload_size = packet.size - PACKET_HEADER_SIZE;
     assert(payload_size % 4 == 0);
@@ -104,14 +105,15 @@ bool DV_router::recv_dv(Packet& packet)
 
 void DV_router::send_dv()
 {
-    auto n_reachable = forward_table_.size();
+    auto n_reachable = rp_.forward_table_.size();
     Packet_size packet_size = PACKET_HEADER_SIZE + n_reachable * 4;
 
-    for (auto port_id : active_ports_) {
-        auto router_id = port_stats_[port_id].router_id;
-        auto packet = prepare_packet(DV, packet_size, router_id_, router_id);
+    for (auto port_id : rp_.active_ports_) {
+        auto router_id = rp_.port_stats_[port_id].router_id;
+        auto packet
+            = prepare_packet(DV, packet_size, rp_.router_id_, router_id);
         auto dest = static_cast<uint16_t*>(packet) + 4;
-        for (const auto& i : forward_table_) {
+        for (const auto& i : rp_.forward_table_) {
             dest[0] = htons(i.first);
             // Reverse poison.
             dest[1] = htons(
@@ -132,7 +134,7 @@ void DV_router::chk_stat(Router_id router)
         return;
 
     auto& entry = it->second;
-    Time curr_time = sys->time();
+    Time curr_time = rp_.sys->time();
     Time elapsed_time = curr_time - entry.last_update;
     if (elapsed_time >= DV_OUT_TIME) {
         dvs_.erase(it);
@@ -148,15 +150,16 @@ bool DV_router::compute_dv()
     //
     // TODO: Update the forward table incrementally and return false when the
     // forward table has not actually been changed.
-    forward_table_.clear();
+    auto& table = rp_.forward_table_;
+    table.clear();
 
-    for (auto port_id : active_ports_) {
-        auto& port_stat = port_stats_[port_id];
+    for (auto port_id : rp_.active_ports_) {
+        auto& port_stat = rp_.port_stats_[port_id];
         assert(port_stat.if_conn);
 
         auto router_id = port_stat.router_id;
         // Forward table entry to the neighbour.
-        auto entry = forward_table_[router_id];
+        auto entry = table[router_id];
         if (port_stat.rtt <= entry.cost) {
             entry.port_id = port_id;
             entry.router_id = router_id;
@@ -171,7 +174,7 @@ bool DV_router::compute_dv()
         }
         auto& dv = it->second.dv;
         for (const auto& i : dv) {
-            auto& entry = forward_table_[i.first];
+            auto& entry = table[i.first];
             Time cost = port_stat.rtt <= INFINITY_COST - i.second
                 ? port_stat.rtt + i.second
                 : INFINITY_COST;
@@ -186,15 +189,15 @@ bool DV_router::compute_dv()
     return true;
 }
 
-static const DV_router::DV_SEND_INTERV = 30 * 1000;
-static const DV_router::DV_OUT_TIME = 45 * 1000;
+const Time DV_router::DV_SEND_INTERV = 30 * 1000;
+const Time DV_router::DV_OUT_TIME = 45 * 1000;
 
 //
 // LS routing method
 //
 
 void LS_router::update_port(
-    Port_id port_id, Router_id router_id, Time rtt, Port_event even)
+    Port_id port_id, Router_id router_id, Time rtt, Port_event event)
 {
     return;
 }
@@ -205,8 +208,8 @@ void LS_router::chk_stat(Router_id router) { return; }
 
 void LS_router::bcast_ls() { return; }
 
-static const Time LS_router::LS_BCAST_INTERV = 30;
-static const Time LS_router::LS_OUT_TIME = 45;
+const Time LS_router::LS_BCAST_INTERV = 30;
+const Time LS_router::LS_OUT_TIME = 45;
 
 //
 // Routing protocol interface.
@@ -257,7 +260,8 @@ void RoutingProtocolImpl::init(unsigned short num_ports,
 void RoutingProtocolImpl::handle_alarm(void* data)
 {
     // add your own code
-    Alarm& alarm = *static_cast<Alarm*>(data);
+    auto alarm_ptr = static_cast<Alarm*>(data);
+    Alarm& alarm = *alarm_ptr;
 
     switch (alarm.type) {
     case (Alarm_type::PORT_CHK):
@@ -272,7 +276,7 @@ void RoutingProtocolImpl::handle_alarm(void* data)
         break;
     case (Alarm_type::DV_REQ):
         assert(dv_router_ != nullptr);
-        DV_router_->send_dv();
+        dv_router_->send_dv();
         sched_dv_heartbeat();
         break;
     case (Alarm_type::LS_CHK):
@@ -284,11 +288,11 @@ void RoutingProtocolImpl::handle_alarm(void* data)
         ls_router_->bcast_ls();
         sched_ls_heartbeat();
         break;
-    case default:
+    default:
         assert(0);
     };
 
-    delete data;
+    delete alarm_ptr;
     return;
 }
 
@@ -319,12 +323,12 @@ void RoutingProtocolImpl::recv(
         assert(ls_router_ != nullptr);
         owner_taken = ls_router_->recv_ls(p);
         break;
-    case default:
+    default:
         assert(0);
     };
 
     if (!owner_taken) {
-        delete packet;
+        free(packet);
     }
 
     return;
@@ -337,11 +341,11 @@ void RoutingProtocolImpl::recv(
 void RoutingProtocolImpl::ping_ports()
 {
     Packet_size size = PACKET_HEADER_SIZE + 4;
-    for (Port_id port = 0; i < port_stats_.size(); ++i) {
+    for (Port_id port = 0; port < port_stats_.size(); ++port) {
         void* packet = prepare_packet(PING, size, router_id_, 0);
-        uint32_t& time_slot = *(static_cast<uint32_t>(packet) + 2);
+        uint32_t& time_slot = *(static_cast<uint32_t*>(packet) + 2);
         time_slot = htonl(sys->time());
-        sys->send(p, packet, size);
+        sys->send(port, packet, size);
     }
 
     Alarm* alarm = new Alarm(Alarm_type::PING_REQ);
@@ -358,7 +362,7 @@ void RoutingProtocolImpl::chk_port(Port_id port)
     return;
 }
 
-void disassoc_port(Port_id port)
+void RoutingProtocolImpl::disassoc_port(Port_id port)
 {
     Port_stat& stat = port_stats_[port];
     if (!stat.if_conn)
@@ -376,7 +380,7 @@ void disassoc_port(Port_id port)
     }
 
     stat.if_conn = false;
-    stat.id = 0;
+    stat.router_id = 0;
     stat.rtt = 0;
     stat.last_update = sys->time();
     return;
@@ -405,7 +409,7 @@ bool RoutingProtocolImpl::recv_data(Packet& packet)
     }
 
     auto& forward = entry->second;
-    sys->send(forward.port, packet.packet, packet.size);
+    sys->send(forward.port_id, packet.packet, packet.size);
     return true;
 }
 
@@ -413,8 +417,8 @@ bool RoutingProtocolImpl::recv_ping(Packet& packet)
 {
     assert(packet.type == PING);
 
-    auto packet_8 = static_cast<uint8_t*>(packet.packet);
-    auto packet_16 = static_cast<uint16_t*>(packet_8);
+    auto packet_8 = reinterpret_cast<uint8_t*>(packet.packet);
+    auto packet_16 = reinterpret_cast<uint16_t*>(packet_8);
 
     *packet_8 = PONG;
     packet_16[2] = htons(router_id_);
@@ -464,7 +468,7 @@ bool RoutingProtocolImpl::recv_pong(Packet& packet)
     return false;
 }
 
-static Time RoutingProtocolImpl::PING_INTERV = 10 * 1000;
-static Time RoutingProtocolImpl::PING_OUT_TIME = 15 * 1000;
+const Time RoutingProtocolImpl::PING_INTERV = 10 * 1000;
+const Time RoutingProtocolImpl::PING_OUT_TIME = 15 * 1000;
 
 // add more of your own code

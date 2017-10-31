@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "Node.h"
 #include "RoutingProtocol.h"
 #include "global.h"
 
@@ -140,7 +141,7 @@ void* prepare_packet(
 /** Size of the header of a packet.
  */
 
-const size_t PACKET_HEADER_SIZE;
+extern const size_t PACKET_HEADER_SIZE;
 
 /** Types for different kinds of alarms.
  *
@@ -248,10 +249,10 @@ private:
     /** Distance vector from other routers.
      */
 
-    using DV = std::vector<std::pair<Router_id, Time>>;
+    using DV_t = std::vector<std::pair<Router_id, Time>>;
 
     struct DV_entry {
-        DV dv;
+        DV_t dv;
         Time last_update;
     };
 
