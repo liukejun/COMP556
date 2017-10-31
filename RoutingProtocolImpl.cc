@@ -87,18 +87,35 @@ bool DV_router::recv_dv(Packet& packet)
     size_t n_reachable = payload_size / 4;
     auto payload = static_cast<uint16_t*>(packet.payload);
     auto& dv = dv_entry.dv;
-    // Update the entire DV.
-    //
-    // TODO: Make a diff comparison and skip local DV update if it is not
-    // changed at all.
-    dv.clear();
-    dv.reserve(n_reachable);
-    for (size_t i = 0; i < n_reachable; ++i) {
-        dv.emplace_back(ntohs(payload[2 * i]), ntohs(payload[2 * i + 1]));
+
+    bool updated = false;
+
+    if (n_reachable != dv.size()) {
+        // In this case, the DV must be changed, and we just reconstruct it
+        // from the packet from scratch.
+        updated = true;
+        dv.clear();
+        dv.reserve(n_reachable);
+        for (size_t i = 0; i < n_reachable; ++i) {
+            dv.emplace_back(ntohs(payload[2 * i]), ntohs(payload[2 * i + 1]));
+        }
+    } else {
+        for (size_t i = 0; i < n_reachable; ++i) {
+            auto dest_id = ntohs(payload[2 * i]);
+            auto cost = ntohs(payload[2 * i + 1]);
+            if (dv[i].first != dest_id || dv[i].second != cost) {
+                dv[i].first = dest_id;
+                dv[i].second = cost;
+                updated = true;
+            }
+        }
     }
 
-    compute_dv();
-    send_dv();
+    if (updated) {
+        if (compute_dv()) {
+            send_dv();
+        }
+    }
 
     return false;
 }
@@ -138,20 +155,25 @@ void DV_router::chk_stat(Router_id router)
     Time elapsed_time = curr_time - entry.last_update;
     if (elapsed_time >= DV_OUT_TIME) {
         dvs_.erase(it);
-        compute_dv();
-        send_dv();
+        if (compute_dv()) {
+            send_dv();
+        }
     }
     return;
 }
 
 bool DV_router::compute_dv()
 {
-    // Construct forward table from scratch.
-    //
-    // TODO: Update the forward table incrementally and return false when the
-    // forward table has not actually been changed.
-    auto& table = rp_.forward_table_;
-    table.clear();
+    auto table = Forward_table{};
+
+    auto update_entry
+        = [&](Forward& entry, Port_id port_id, Router_id router_id, Time cost) {
+              if (cost < entry.cost || entry.port_id == -1) {
+                  entry.port_id = port_id;
+                  entry.router_id = router_id;
+                  entry.cost = cost;
+              }
+          };
 
     for (auto port_id : rp_.active_ports_) {
         auto& port_stat = rp_.port_stats_[port_id];
@@ -159,12 +181,8 @@ bool DV_router::compute_dv()
 
         auto router_id = port_stat.router_id;
         // Forward table entry to the neighbour.
-        auto entry = table[router_id];
-        if (port_stat.rtt <= entry.cost) {
-            entry.port_id = port_id;
-            entry.router_id = router_id;
-            entry.cost = port_stat.rtt;
-        }
+        auto& entry = table[router_id];
+        update_entry(entry, port_id, router_id, port_stat.rtt);
 
         auto it = dvs_.find(router_id);
         if (it == dvs_.end()) {
@@ -178,15 +196,16 @@ bool DV_router::compute_dv()
             Time cost = port_stat.rtt <= INFINITY_COST - i.second
                 ? port_stat.rtt + i.second
                 : INFINITY_COST;
-            if (cost <= entry.cost) {
-                entry.port_id = port_id;
-                entry.router_id = router_id;
-                entry.cost = cost;
-            }
+            update_entry(entry, port_id, router_id, cost);
         }
     }
 
-    return true;
+    if (table == rp_.forward_table_) {
+        return false;
+    } else {
+        rp_.forward_table_.swap(table);
+        return true;
+    }
 }
 
 const Time DV_router::DV_SEND_INTERV = 30 * 1000;
