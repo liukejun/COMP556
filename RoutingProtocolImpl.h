@@ -1,6 +1,7 @@
 #ifndef ROUTINGPROTOCOLIMPL_H
 #define ROUTINGPROTOCOLIMPL_H
 
+#include <map>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -101,9 +102,12 @@ struct Forward {
  *
  * This is going to be used by both routing algorithms.  It is also used as the
  * DV for the router itself in DV routing.
+ *
+ * It is set as an map so that its entries could be serialized in a very
+ * deterministic manner for the ease of comparison.
  */
 
-using Forward_table = std::unordered_map<Router_id, Forward>;
+using Forward_table = std::map<Router_id, Forward>;
 
 //
 // Events related: messages and alarms.
