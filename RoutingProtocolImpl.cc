@@ -15,7 +15,7 @@ Packet parse_packet(Port_id port, void* packet, Packet_size size)
 {
     Packet res;
 
-    res.type = *static_cast<ePacketType*>(packet);
+    res.type = static_cast<ePacketType>(*static_cast<uint8_t*>(packet));
     res.port = port;
 
     auto packet_16 = static_cast<uint16_t*>(packet);
