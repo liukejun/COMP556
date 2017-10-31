@@ -205,6 +205,9 @@ void LS_router::chk_stat(Router_id router) { return; }
 
 void LS_router::bcast_ls() { return; }
 
+static const Time LS_router::LS_BCAST_INTERV = 30;
+static const Time LS_router::LS_OUT_TIME = 45;
+
 //
 // Routing protocol interface.
 //

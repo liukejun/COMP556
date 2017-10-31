@@ -294,6 +294,10 @@ public:
     void bcast_ls();
 
 private:
+
+    static const Time LS_BCAST_INTERV;
+    static const Time LS_OUT_TIME;
+
     RoutingProtocolImpl& rp_;
 };
 
