@@ -194,6 +194,11 @@ void LS_router::chk_stat(Router_id router) { return; }
 
 void LS_router::bcast_ls() { return; }
 
+//
+// Routing protocol interface.
+//
+// Public functions.
+//
 
 RoutingProtocolImpl::RoutingProtocolImpl(Node* n)
     : RoutingProtocol(n)
@@ -211,17 +216,234 @@ void RoutingProtocolImpl::init(unsigned short num_ports,
     unsigned short router_id, eProtocolType protocol_type)
 {
     // add your own code
+
+    port_stats_.assign(num_ports, Port_stat());
+    router_id_ = router_id;
+    protocol_type_ = protocol_type;
+
+    ping_ports();
+    for (size_t i = 0; i < num_ports; ++i) {
+        sched_port_chk(i);
+    }
+
+    if (protocol_type == P_DV) {
+        dv_router_.reset(new DV_router(*this);
+    } else if (protocol_type == P_LS) {
+        ls_router_.reset(new LS_router(*this);
+    } else {
+        assert(0);
+    }
 }
 
 void RoutingProtocolImpl::handle_alarm(void* data)
 {
     // add your own code
+    Alarm& alarm = *static_cast<Alarm*>(data);
+
+    switch (alarm.type) {
+    case (Alarm_type::PORT_CHK):
+        chk_port(alarm.content.port_id);
+        break;
+    case (Alarm_type::PING_REQ):
+        ping_ports();
+        break;
+    case (Alarm_type::DV_CHK):
+        assert(dv_router_ != nullptr);
+        dv_router_->chk_stat(alarm.content.router_id);
+        break;
+    case (Alarm_type::DV_REQ):
+        assert(dv_router_ != nullptr);
+        DV_router_->send_dv();
+        break;
+    case (Alarm_type::LS_CHK):
+        assert(ls_router_ != nullptr);
+        ls_router_->chk_stat(alarm.content.router_id);
+        break;
+    case (Alarm_type::LS_REQ):
+        assert(ls_router_ != nullptr);
+        ls_router_->bcast_ls();
+        break;
+    case default:
+        assert(0);
+    };
+
+    delete data;
+    return;
 }
 
 void RoutingProtocolImpl::recv(
     unsigned short port, void* packet, unsigned short size)
 {
     // add your own code
+    Packet p = parse_packet(port, packet);
+    assert(p.size == size);
+
+    bool owner_taken = false;
+
+    switch (p.type) {
+    case (DATA):
+        owner_taken = recv_data(p);
+        break;
+    case (PING):
+        owner_taken = recv_ping(p);
+        break;
+    case (PONG):
+        owner_taken = recv_pong(p);
+        break;
+    case (DV):
+        assert(dv_router_ != nullptr);
+        owner_taken = dv_router_->recv_dv(p);
+        break;
+    case (LS):
+        assert(ls_router_ != nullptr);
+        owner_taken = ls_router_->recv_ls(p);
+        break;
+    case default:
+        assert(0);
+    };
+
+    if (!owner_taken) {
+        delete packet;
+    }
+
+    return;
 }
+
+//
+// Router interface internal functions.
+//
+
+void RoutingProtocolImpl::ping_ports()
+{
+    Packet_size size = PACKET_HEADER_SIZE + 4;
+    for (Port_id port = 0; i < port_stats_.size(); ++i) {
+        void* packet = prepare_packet(PING, size, router_id_, 0);
+        uint32_t& time_slot = *(static_cast<uint32_t>(packet) + 2);
+        time_slot = htonl(sys->time());
+        sys->send(p, packet, size);
+    }
+
+    Alarm* alarm = new Alarm(Alarm_type::PING_REQ);
+    sys->set_alarm(this, PING_INTERV, alarm);
+}
+
+void RoutingProtocolImpl::chk_port(Port_id port)
+{
+    Time curr_time = sys->time();
+    Time elapsed = curr_time - port_stats_[port].last_update;
+    if (elapsed >= PING_OUT_TIME) {
+        disassoc_port(port);
+    }
+    return;
+}
+
+void disassoc_port(Port_id port)
+{
+    Port_stat& stat = port_stats_[port];
+    if (!stat.if_conn)
+        return;
+
+    auto it = active_ports_.find(port);
+    assert(it != active_ports_.end());
+    active_ports_.erase(it);
+
+    if (dv_router_ != nullptr) {
+        dv_router_->update_port(port, 0, 0, Port_event::DISCONN);
+    }
+    if (ls_router_ != nullptr) {
+        ls_router_->update_port(port, 0, 0, Port_event::DISCONN);
+    }
+
+    stat.if_conn = false;
+    stat.id = 0;
+    stat.rtt = 0;
+    stat.last_update = sys->time();
+    return;
+}
+
+void RoutingProtocolImpl::sched_port_chk(Port_id port)
+{
+    Alarm* alarm = new Alarm(Alarm_type::PORT_CHK);
+    alarm->content.port_id = port;
+    sys->set_alarm(this, PING_OUT_TIME, alarm);
+    return;
+}
+
+bool RoutingProtocolImpl::recv_data(Packet& packet)
+{
+    assert(packet.type == DATA);
+
+    if (packet.dest == router_id_) {
+        return false;
+    }
+
+    auto entry = forward_table_.find(packet.dest);
+    if (entry == forward_table_.end()) {
+        // Unable to find the destination, drop packet.
+        return false;
+    }
+
+    auto& forward = entry->second;
+    sys->send(forward.port, packet.packet, packet.size);
+    return true;
+}
+
+bool RoutingProtocolImpl::recv_ping(Packet& packet)
+{
+    assert(packet.type == PING);
+
+    auto packet_8 = static_cast<uint8_t*>(packet.packet);
+    auto packet_16 = static_cast<uint16_t*>(packet_8);
+
+    *packet_8 = PONG;
+    packet_16[2] = htons(router_id_);
+    packet_16[3] = htons(packet.src);
+    sys->send(packet.port, packet.packet, packet.size);
+
+    return true;
+}
+
+bool RoutingProtocolImpl::recv_pong(Packet& packet)
+{
+    assert(packet.type == PONG);
+
+    // Get current time as the first thing for better accuracy in RTT
+    // estimation.
+    Time curr_time = sys->time();
+
+    auto& stat = port_stats_[packet.port];
+
+    // Preserve some previous states to get what actually changed (or not
+    // changed).
+    auto prev_conn = stat.if_conn;
+    auto prev_router_id = stat.router_id;
+    auto prev_rtt = stat.rtt;
+
+    stat.if_conn = true;
+    stat.router_id = packet.src;
+    Time send_time = ntohl(*static_cast<Time*>(packet.payload));
+    stat.rtt = curr_time - send_time;
+    stat.last_update = curr_time;
+
+    active_ports_.insert(packet.port);
+    if (!prev_conn || prev_router_id != stat.router_id
+        || prev_rtt != stat.rtt) {
+        // If a new connection or anything changed.
+
+        if (dv_router_ != nullptr) {
+            dv_router_->update_port(
+                packet.port, packet.src, stat.rtt, Port_event::CONN);
+        }
+        if (ls_router_ != nullptr) {
+            ls_router_->update_port(
+                packet.port, packet.src, stat.rtt, Port_event::CONN);
+        }
+    }
+
+    return false;
+}
+
+static Time RoutingProtocolImpl::PING_INTERV = 10 * 1000;
+static Time RoutingProtocolImpl::PING_OUT_TIME = 15 * 1000;
 
 // add more of your own code
