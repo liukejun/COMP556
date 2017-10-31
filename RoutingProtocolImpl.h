@@ -294,7 +294,6 @@ public:
     void bcast_ls();
 
 private:
-
     static const Time LS_BCAST_INTERV;
     static const Time LS_OUT_TIME;
 
@@ -389,6 +388,26 @@ private:
      */
 
     bool recv_pong(Packet&);
+
+    /** Schedule a heartbeat for DV router.
+     */
+
+    inline void sched_dv_heartbeat()
+    {
+        sys->set_alarm(
+            this, DV_router::DV_SEND_INTERV, new Alarm(Alarm_type::DV_REQ));
+        return;
+    }
+
+    /** Schedule a heartbeat for LS router.
+     */
+
+    inline void sched_ls_heartbeat()
+    {
+        sys->set_alarm(
+            this, LS_router::LS_BCAST_INTERV, new Alarm(Alarm_type::LS_REQ));
+        return;
+    }
 
     static const Time PING_INTERV;
     static const Time PING_OUT_TIME;
