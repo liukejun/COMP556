@@ -200,6 +200,8 @@ enum class Port_event { CONN, DISCONN };
 
 class DV_router {
 public:
+    friend class RoutingProtocolImpl;
+
     DV_router(RoutingProtocolImpl& rp)
         : rp_{ rp }
         , dvs_{}
@@ -263,6 +265,8 @@ private:
 
 class LS_router {
 public:
+    friend class RoutingProtocolImpl;
+
     LS_router(RoutingProtocolImpl& rp)
         : rp_{ rp }
     {
