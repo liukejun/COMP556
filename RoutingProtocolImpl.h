@@ -19,20 +19,20 @@
 
 using Time = unsigned int;
 
-/** The ID for each of the routers.
+/** IDs for each of the routers.
  */
 
 using Router_id = unsigned short;
 
-/** The ID for the ports.
+/** IDs for the ports.
  *
  * This type is only utilized on the interface level.  In the core, ports are
- * better handled as size_t for naive indexing the ports vector.
+ * better handled as size_t for naive indexing of the ports vector.
  */
 
 using Port_id = unsigned short;
 
-/** The size of the packets.
+/** Sizes of the packets.
  */
 
 using Packet_size = unsigned short;
@@ -43,7 +43,8 @@ using Packet_size = unsigned short;
 
 /** The status of a port.
  *
- * This open struct relies on direct manipulation inside the routing protocol.
+ * This open struct relies more on direct manipulation inside the routing
+ * protocol.  Not many methods are given.
  */
 
 struct Port_stat {
@@ -78,6 +79,8 @@ using Active_ports = std::unordered_set<size_t>;
 //
 
 /** Single entry inside an forward table.
+ *
+ * This gives the routing for any given router inside the forwarding table.
  */
 
 struct Forward {
@@ -141,16 +144,17 @@ const size_t PACKET_HEADER_SIZE;
 
 /** Types for different kinds of alarms.
  *
- * CHK types are for checking the activity of a port, DV entry, or an LS entry.
- * The REQ types are generally for periodic actions to be performed.
+ * CHK types are for checking the activity of a port, DV entry, or an LS entry
+ * to ensure that it is still alive.  The REQ types are generally for periodic
+ * heartbeat actions to be performed.
  */
 
 enum class Alarm_type { PORT_CHK, PING_REQ, DV_CHK, DV_REQ, LS_CHK, LS_REQ };
 
 /** The actual alarms.
  *
- * In the current implementation, alarm will be allocated by the sender on the
- * heap and released by the handler.
+ * In the current implementation, alarm will always be allocated by the sender
+ * on the heap and released by the handler.
  */
 
 struct Alarm {
@@ -202,6 +206,9 @@ public:
     {
     }
 
+    /** Handle new port event.
+     */
+
     void update_port(
         Port_id port_id, Router_id router_id, Time rtt, Port_event event);
 
@@ -212,8 +219,8 @@ public:
 
     /** Send DV to its neighbours.
      *
-     * Reverse poison is implemented so that DV sent may not be the same as the
-     * local forward table.
+     * Reverse poison is implemented so that the DV sent may not be the same as
+     * the local forward table.
      */
 
     void send_dv();
@@ -260,6 +267,9 @@ public:
         : rp_{ rp }
     {
     }
+
+    /** Handle a new port event.
+     */
 
     void update_port(
         Port_id port_id, Router_id router_id, Time rtt, Port_event event);
@@ -331,7 +341,8 @@ public:
 private:
     /** Ping all ports of the router.
      *
-     * This method sends a ping to all the ports and schedule the next ping.
+     * This method sends a ping to all the ports and schedule the next
+     * heartbeat ping as well.
      */
 
     void ping_ports();
@@ -376,7 +387,7 @@ private:
 
     Node* sys; // To store Node object; used to access GSR9999 interfaces
 
-    unsigned short router_id_;
+    Router_id router_id_;
     eProtocolType protocol_type_;
 
     Port_stats port_stats_{};
