@@ -58,7 +58,7 @@ struct Port_stat {
     Port_stat()
         : if_conn(false)
         , router_id(0)
-        , rtt(0)
+        , rtt(INFINITY_COST)
         , last_update(0)
     {
     }

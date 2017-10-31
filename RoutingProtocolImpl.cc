@@ -391,6 +391,13 @@ void RoutingProtocolImpl::disassoc_port(Port_id port)
     assert(it != active_ports_.end());
     active_ports_.erase(it);
 
+    stat.if_conn = false;
+    stat.router_id = 0;
+    stat.rtt = INFINITY_COST;
+    stat.last_update = sys->time();
+
+    // Inform the individual routers only when all the states are correctly
+    // updated.
     if (dv_router_ != nullptr) {
         dv_router_->update_port(port, 0, 0, Port_event::DISCONN);
     }
@@ -398,10 +405,6 @@ void RoutingProtocolImpl::disassoc_port(Port_id port)
         ls_router_->update_port(port, 0, 0, Port_event::DISCONN);
     }
 
-    stat.if_conn = false;
-    stat.router_id = 0;
-    stat.rtt = 0;
-    stat.last_update = sys->time();
     return;
 }
 
