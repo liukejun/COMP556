@@ -38,7 +38,7 @@ def normalize_out(lines):
 
         # Time, actual event, and the original line.
         contents.append((
-            float(fields[2]), ' '.join(fields[3:]), line
+            float(fields[2]), ' '.join(fields[3:]), line.strip()
         ))
         continue
 
