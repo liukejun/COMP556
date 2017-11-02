@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+import argparse
+
+def main():
+    """The main driver."""
+
+    parser = argparse.ArgumentParser(
+        description="Normalize simulation output."
+    )
+    parser.add_argument(
+        'input', metavar='FILE', type=argparse.FileType('r'),
+        help="Output file to be normalized."
+    )
+    args = parser.parse_args()
+
+    normalize_out(args.input)
+
+    return 0
+
+
+def normalize_out(lines):
+    """Normalize the output lines.
+
+    The result will be printed onto the standard output.
+    """
+    contents = []
+
+    for line in lines:
+        fields = line.split()
+        if_skip = (
+            len(fields) < 4
+            or fields[0] != 'time' or fields[1] != '='
+            or fields[3] == 'Event_Alarm'
+        )
+        if if_skip:
+            continue
+
+        # Time, actual event, and the original line.
+        contents.append((
+            float(fields[2]), ' '.join(fields[3:]), line.strip()
+        ))
+        continue
+
+    contents.sort()
+    for i in contents:
+        print(i[2])
+        continue
+
+    return
+
+
+if __name__ == '__main__':
+    main()
