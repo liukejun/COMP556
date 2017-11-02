@@ -2,6 +2,9 @@
 #include <cstdint>
 #include <cstdlib>
 
+#include <algorithm>
+#include <queue>
+
 #include <arpa/inet.h>
 
 #include "RoutingProtocolImpl.h"
@@ -46,7 +49,7 @@ void* prepare_packet(
     return static_cast<void*>(packet);
 }
 
-const size_t PACKET_HEADER_SIZE = 8;
+const Packet_size PACKET_HEADER_SIZE = 8;
 
 //
 // DV routing method.
@@ -193,7 +196,8 @@ bool DV_router::compute_dv()
         auto& dv = it->second.dv;
         for (const auto& i : dv) {
             // Skip circular routing to itself.
-            if (i.first == rp_.router_id_) continue;
+            if (i.first == rp_.router_id_)
+                continue;
             auto& entry = table[i.first];
             Time cost = port_stat.rtt <= INFINITY_COST - i.second
                 ? port_stat.rtt + i.second
@@ -220,17 +224,166 @@ const Time DV_router::DV_OUT_TIME = 45 * 1000;
 void LS_router::update_port(
     Port_id port_id, Router_id router_id, Time rtt, Port_event event)
 {
+    // Compute edges of oneself from scratch.
+    //
+    // TODO: Make incremental update according to the actual event.
+    self_edges_.clear();
+    for (auto port_id : rp_.active_ports_) {
+        const auto& stat = rp_.port_stats_[port_id];
+        assert(stat.if_conn);
+        self_edges_.emplace_back(stat.router_id, stat.rtt);
+    }
+    std::sort(self_edges_.begin(), self_edges_.end());
+
+    compute_forward();
+    bcast_ls();
     return;
 }
 
-bool LS_router::recv_ls(Packet& packet) { return false; }
+bool LS_router::recv_ls(Packet& packet)
+{
+    if (packet.src == rp_.router_id_) {
+        return false;
+    }
 
-void LS_router::chk_stat(Router_id router) { return; }
+    auto curr_time = rp_.sys->time();
+    auto& stat = routers_[packet.src];
 
-void LS_router::bcast_ls() { return; }
+    // Always update last update time and schedule a check of its status
+    // whenever we hear anything from the router.
+    stat.last_update = curr_time;
+    Alarm* alarm = new Alarm(Alarm_type::LS_CHK);
+    alarm->content.router_id = packet.src;
+    rp_.sys->set_alarm(&rp_, LS_router::LS_OUT_TIME, alarm);
 
-const Time LS_router::LS_BCAST_INTERV = 30;
-const Time LS_router::LS_OUT_TIME = 45;
+    auto seq = ntohl(*(static_cast<Seq*>(packet.payload)));
+    if (seq < stat.avail_seq) {
+        return false;
+    }
+    stat.avail_seq = seq + 1;
+
+    size_t entries_size = packet.size - PACKET_HEADER_SIZE - 4;
+    assert(entries_size % 4 == 0);
+    auto n_entries = entries_size / 4;
+
+    // Parse the content.
+    auto content = static_cast<const uint16_t*>(packet.payload) + 2;
+    Edges edges{};
+    for (size_t i = 0; i < n_entries; ++i) {
+        edges.emplace_back(ntohs(content[0]), ntohs(content[1]));
+        content += 2;
+    }
+
+    // It needs to be forwarded whether or not it is new.  It could be a
+    // heartbeat.
+    bcast_ls(packet.src, edges, seq);
+
+    auto& curr_edges = stat.edges;
+    if (edges != curr_edges) {
+        curr_edges.swap(edges);
+        compute_forward();
+    }
+
+    return false;
+}
+
+void LS_router::chk_stat(Router_id router)
+{
+    auto it = routers_.find(router);
+    if (it == routers_.end()) {
+        // Stale routers already removed.
+        return;
+    }
+
+    Time curr_time = rp_.sys->time();
+    auto elapsed = curr_time - it->second.last_update;
+    if (elapsed >= LS_OUT_TIME) {
+        routers_.erase(it);
+        compute_forward();
+    }
+    return;
+}
+
+void LS_router::bcast_ls()
+{
+    auto seq = next_seq_;
+    ++next_seq_;
+    bcast_ls(rp_.router_id_, self_edges_, seq);
+    return;
+}
+
+void LS_router::bcast_ls(Router_id router_id, const Edges& edges, Seq seq)
+{
+    auto packet_size = PACKET_HEADER_SIZE + 4 * (edges.size() + 1);
+
+    for (auto port_id : rp_.active_ports_) {
+        assert(rp_.port_stats_[port_id].if_conn);
+
+        auto packet = prepare_packet(LS, packet_size, router_id, 0);
+
+        *(static_cast<Seq*>(packet) + 2) = htonl(seq);
+        auto dest = static_cast<uint16_t*>(packet) + 6;
+
+        for (const auto& i : edges) {
+            dest[0] = htons(i.first);
+            dest[1] = htons(i.second);
+            dest += 2;
+        }
+
+        rp_.sys->send(port_id, packet, packet_size);
+    }
+    return;
+}
+
+const Time LS_router::LS_BCAST_INTERV = 30 * 1000;
+const Time LS_router::LS_OUT_TIME = 45 * 1000;
+
+//
+// Core Dijkstra for LS routing.
+//
+
+void LS_router::compute_forward()
+{
+    auto& table = rp_.forward_table_;
+    const auto& port_stats = rp_.port_stats_;
+
+    // Compute forward table from scratch.
+    //
+    // TODO: Make it more incremental from the actual changed happened.
+    table.clear();
+
+    std::priority_queue<Relax> queue{};
+    for (auto port_id : rp_.active_ports_) {
+        const auto& stat = port_stats[port_id];
+        assert(stat.if_conn);
+        queue.emplace(Relax{ stat.router_id, stat.rtt, port_id });
+    }
+
+    while (!queue.empty()) {
+        const auto& relax = queue.top();
+        bool if_proc = relax.dest != rp_.router_id_
+            && (table.count(relax.dest) == 0
+                   || table[relax.dest].cost > relax.cost);
+        if (if_proc) {
+            auto& forward = table[relax.dest];
+            forward.router_id = port_stats[relax.next].router_id;
+            forward.port_id = relax.next;
+            forward.cost = relax.cost;
+
+            auto it = routers_.find(relax.dest);
+            if (it != routers_.end()) {
+                const auto& edges = it->second.edges;
+                for (const auto& i : edges) {
+                    queue.emplace(
+                        Relax{ i.first, relax.cost + i.second, relax.next });
+                }
+            }
+        }
+        queue.pop();
+    }
+
+    return;
+}
 
 //
 // Routing protocol interface.

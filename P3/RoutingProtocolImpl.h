@@ -27,9 +27,6 @@ using Time = unsigned int;
 using Router_id = unsigned short;
 
 /** IDs for the ports.
- *
- * This type is only utilized on the interface level.  In the core, ports are
- * better handled as size_t for naive indexing of the ports vector.
  */
 
 using Port_id = unsigned short;
@@ -74,7 +71,7 @@ using Port_stats = std::vector<Port_stat>;
  * The contents are the indices to the port status vector.
  */
 
-using Active_ports = std::set<size_t>;
+using Active_ports = std::set<Port_id>;
 
 //
 // Core routing data structures.
@@ -157,7 +154,7 @@ void* prepare_packet(
 /** Size of the header of a packet.
  */
 
-extern const size_t PACKET_HEADER_SIZE;
+extern const Packet_size PACKET_HEADER_SIZE;
 
 /** Types for different kinds of alarms.
  *
@@ -182,7 +179,7 @@ struct Alarm {
          *
          * For PORT_CHK.
          */
-        size_t port_id;
+        Port_id port_id;
 
         /** Router ID.
          *
@@ -286,6 +283,7 @@ public:
 
     LS_router(RoutingProtocolImpl& rp)
         : rp_(rp)
+        , self_edges_()
     {
     }
 
@@ -315,6 +313,105 @@ private:
     static const Time LS_OUT_TIME;
 
     RoutingProtocolImpl& rp_;
+
+    //
+    // Graph topology.
+    //
+
+    /** An edge from a router.
+     */
+
+    using Edge = std::pair<Router_id, Time>;
+
+    /** The edges from a vertex.
+     */
+
+    using Edges = std::vector<Edge>;
+
+    /** The sequence number for LS packets.
+     */
+
+    using Seq = uint32_t;
+
+    /** The statues of a fellow router in the network.
+     */
+
+    struct Stat {
+        Time last_update;
+        Edges edges;
+
+        /** The next available sequence number from this router.
+         */
+
+        Seq avail_seq;
+
+        /** Construct a default status.
+         *
+         * Note that the last update time is given an arbitrary value of zero.
+         * Actual time need to be assigned after creation.
+         */
+
+        Stat()
+            : last_update(0)
+            , edges()
+            , avail_seq(0)
+        {
+        }
+    };
+
+    /** Container for fellow routers and their information.
+     */
+
+    using Routers = unordered_map<Router_id, Stat>;
+
+    /** Broadcast the edges for a specific router.
+     */
+
+    void bcast_ls(Router_id, const Edges& edges, Seq seq);
+
+    /** Relax information inside Dijkstra.
+     */
+
+    struct Relax {
+        Router_id dest;
+        Time cost;
+
+        /** The port id for the first hop from the current router.
+         */
+
+        Port_id next;
+
+        /** Compare cost.
+         *
+         * This comparison is made to be used for the Dijkstra heap queue.
+         */
+
+        inline bool operator<(const Relax& other) const
+        {
+            return cost > other.cost;
+        }
+    };
+
+    /** Compute the forwarding table from the current graph.
+     *
+     * The core Dijkstra algorithm is executed here.
+     */
+
+    void compute_forward();
+
+    /** All known routers in the network.
+     *
+     * The global topology of the graph should be available here.
+     */
+
+    Routers routers_{};
+
+    Seq next_seq_ = 0;
+
+    /** The edges of the current router.
+     */
+
+    Edges self_edges_;
 };
 
 /** Implementation of the routing protocol interface.
