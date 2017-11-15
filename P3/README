@@ -1,0 +1,30 @@
+----------------------------
+Teammates
+----------------------------
+
+Junru Xia(jx17) & Shuo Zhao(sz32) & Kejun Liu(kl50)
+
+
+----------------------------
+How to run it
+----------------------------
+
+1 To run programs, compile via command: make
+
+2 Run the DV implementation:
+    ./Simulator config file DV (replace config with test configuration file)
+
+3 Run the LS implementation:
+    ./Simulator config file LS (replace config with test configuration file)
+
+
+----------------------------
+ Periodic Checks
+----------------------------
+
+For periodic check(port status, DV entry status, and LS entry status),
+we did not implement a 1-second periodic check on all the state’s freshness.
+Instead, we schedule a check for that specific entry in a certain amount of
+time (15 seconds for port status while 45 seconds for DV/LS entry) right after
+when the target entry is updated. In this way the checking could be done more
+efficiently.

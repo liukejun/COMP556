@@ -373,9 +373,11 @@ void LS_router::compute_forward()
             auto it = routers_.find(relax.dest);
             if (it != routers_.end()) {
                 const auto& edges = it->second.edges;
+                auto curr_next = relax.next;
+                auto curr_cost = relax.cost;
                 for (const auto& i : edges) {
                     queue.emplace(
-                        Relax{ i.first, relax.cost + i.second, relax.next });
+                        Relax{ i.first, curr_cost + i.second, curr_next });
                 }
             }
         }
