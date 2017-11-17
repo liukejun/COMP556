@@ -24,6 +24,18 @@ We tests our implementation both at the component level and at system level.
   get reasonable entries in forwarding table in both DV protocol and LS protocol. And this could also
   confirm we could send and process DV/LS packets correctly.
 
+4 route computation
+  We use the given test cases and also our own small test cases to test the computation of route.
+  By testing our DV/LS algorithm against specifically designed networks including network with all links
+  of equal weights, network with links of different weights, cyclic network ect, we are confident that
+  our implementation of Distance Vector Algorithm and Dijkstra’s algorithm is correct.
+
+
+5 memory leakage
+  In order to check its memory usage, we changed the end time of one of our test case to 4000000.00. In
+  this way, the program could run long enough for us to monitor its memory usage via "top" command.
+  And the result shows that our implementation could run without memory leakage.
+
 
 ============================
      System Test
@@ -41,12 +53,15 @@ LS output:  3nodeLinkFailure.ls.out
 
 In this three-nodes network, the link between node 1 and node2 will fail and then come up later.
 A packet is sent from node3 to node1 before the link failure, after the link failure, and after
-the link reconnection respectively.
+the link reconnection respectively. In addition, these three nodes form a cyclic network and
+implementation should avoid possible infinite loops.
 
 Tests whether
 1) data packet will be sent by the right route when all links function correctly.
 2) a new route will be selected when one link fails.
-3) a new route will be selected when that link is healed
+3) a new route will be selected when that link is healed.
+4) correct route could be selected in a cyclic network.
+
 
 
 Test result
