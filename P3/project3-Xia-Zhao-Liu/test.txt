@@ -1,0 +1,122 @@
+**************************************************
+            Test Strategies
+**************************************************
+
+We tests our implementation both at the component level and at system level.
+
+
+
+============================
+    Component Test
+============================
+
+1 PING-PONG packets
+  We ran all our own tests and also provided tests. And then we use " grep 'PING\|PONG' "to
+  collect all ping/pong messages. By following all ping/pong message, we could know if packets
+  are exchanged reasonablly.
+2 active ports
+  In the begining of our implementation, We also print out all connected neighbours/ports of current
+  router and also all rtt costs just to confirm that we get the ping/pong packets prepared,
+  transmitted and processed correctly.
+
+3 forwarding table
+  In the begining of our implementation, We print out the whole forwarding table to make sure we
+  get reasonable entries in forwarding table in both DV protocol and LS protocol. And this could also
+  confirm we could send and process DV/LS packets correctly.
+
+4 route computation
+  We use the given test cases and also our own small test cases to test the computation of route.
+  By testing our DV/LS algorithm against specifically designed networks including network with all links
+  of equal weights, network with links of different weights, cyclic network ect, we are confident that
+  our implementation of Distance Vector Algorithm and Dijkstra’s algorithm is correct.
+
+
+5 memory leakage
+  In order to check its memory usage, we changed the end time of one of our test case to 4000000.00. In
+  this way, the program could run long enough for us to monitor its memory usage via "top" command.
+  And the result shows that our implementation could run without memory leakage.
+
+
+============================
+     System Test
+============================
+All test cases and results are included in the testcases folder
+
+
+
+-------------------------
+    3nodeLinkFailure
+-------------------------
+configuration file:  3nodeLinkFailure
+DV output:  3nodeLinkFailure.dv.out
+LS output:  3nodeLinkFailure.ls.out
+
+In this three-nodes network, the link between node 1 and node2 will fail and then come up later.
+A packet is sent from node3 to node1 before the link failure, after the link failure, and after
+the link reconnection respectively. In addition, these three nodes form a cyclic network and
+implementation should avoid possible infinite loops.
+
+Tests whether
+1) data packet will be sent by the right route when all links function correctly.
+2) a new route will be selected when one link fails.
+3) a new route will be selected when that link is healed.
+4) correct route could be selected in a cyclic network.
+
+
+
+Test result
+When all links work correctly, all ping/pong/DV/LS message are exchanged correctly and DATA packet
+will be sent by correct route. When link between node1 and node2 fails, ping messages are still
+sent out between node1 and node2 but it can not be received and is lost, which is what we expect to happen.
+When that link hails later, all communications will be restored and the old route will be chosen again
+for the packet sent from node3 to node1. It shows our implementation is robust enought against link
+failure and reconnection.
+
+
+-------------------------
+ 3nodeReversePosioning
+-------------------------
+configuration file:  3nodeReversePosioning
+DV output  3nodeReversePosioning.dv.out
+LS output  3nodeReversePosioning.ls.out
+
+In this three-nodes network, the delay between node 1 and node2 will increase and then decrease later.
+A packet is sent from node3 to node1 before delay increase, after delay increase, and after delay
+decrease respectively.
+
+Tests whether
+1) reverse poisoning is implemented correctly to avoid "count to infinity problem"
+2) correct routes will be selected when a delay is increased
+3) correct routes will be selected when a delay is decreased
+
+
+Test result
+When all links work correctly, all ping/pong/DV/LS message are exchanged correctly and DATA packet
+will be sent by correct route. When link between node1 and node2 fails, ping messages are still
+sent out between node1 and node2 but it can not be received and is lost, which is what we expect to happen.
+When that link hails later, all communications will be restored and the old route will be chosen again
+for the packet sent from node3 to node1. It shows our implementation is robust enought against link
+failure and reconnection.
+
+
+-------------------------
+       20nodes
+-------------------------
+configuration file:  20nodes
+DV output  20nodes.dv.out
+LS output  20nodes.ls.out
+
+
+This larget network tests if our implementation's able to handle a larget number of nodes.
+The large number of nodes and complex topology of this graph gives us confidence that
+our DV and LS implemenation does work and our algorithms (Dijkstra’s algorithm in LS protocol
+and Distance Vector Algorithm in DV protocol) are implemented correctly.
+
+Tests whether
+1) ping/pong/dv/ls packets are sent correctly between a large number of nodes.
+2) correct route will be selected using either Dijkstra’s algorithm or distance vector algorithm
+
+
+Test result
+In this complex network, all ping/pong/DV/LS message are exchanged correctly and DATA packet
+will be sent by correct route.
